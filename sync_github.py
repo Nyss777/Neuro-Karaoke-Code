@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -39,7 +40,7 @@ def get_changed_files() -> list[str]:
     
     return files
     
-def get_metadata(hjson_path: str) -> ( dict[str, (str | int | float)] | None ):
+def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
     # 1. Load the HJSON metadata
     try:
         with open(hjson_path, 'r', encoding='utf-8') as f:
@@ -50,8 +51,35 @@ def get_metadata(hjson_path: str) -> ( dict[str, (str | int | float)] | None ):
         print(f"Unable to process metadata for {os.path.basename(hjson_path)}!")
         return None
 
+def setup_logger():
+    logger = logging.getLogger()
+
+    script_dir = Path(__file__).parent.absolute()
+
+    log_path = script_dir / f'sync [{date.today()}].log'
+
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+
+    file_handler = logging.FileHandler(log_path, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+    return logger
+
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
+
+    setup_logger()
+
+    logger.info('-'*20 + "Program Start" + '-'*20)
 
     os.chdir(LOCAL_REPO_LOCATION_PATH)
 
@@ -60,8 +88,8 @@ if __name__ == "__main__":
     # subprocess.run(["git", "pull", "origin", "main"])
 
     # changed_files = get_changed_files()
-    # print(f"Number of changes: {len(changed_files)}")
-    # print(f"DIF-TREE RESPONSE: {changed_files}")
+    # logger.info(f"Number of changes: {len(changed_files)}")
+    # logger.info(f"DIF-TREE RESPONSE: {changed_files}")
 
     ## PLACEHOLDER
     changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
@@ -72,7 +100,12 @@ if __name__ == "__main__":
                     and (metadata := get_metadata(file_path))}
 
     song_files = get_all_mp3(LIVE_ARCHIVE_PATH)
-    print(f"Songs Found: {len(song_files)}")
+
+    song_files_length = len(song_files)
+    if song_files_length > 0:
+        logger.info(f"Songs Found: {len(song_files)}")
+    else:
+        logger.warning("No songs found! Please verify the path")
 
     change = False
     for song_path in song_files:
@@ -83,7 +116,7 @@ if __name__ == "__main__":
         if not xxhash_value:
             xxhash_value = get_audio_hash(song_path)
         if not xxhash_value:
-            print(f"Unable to get xxhash for {song_path}")
+            logger.warning(f"Unable to get xxhash for {song_path}")
             continue
         
         hjson_data = lookup_table.get(xxhash_value)
@@ -95,7 +128,7 @@ if __name__ == "__main__":
         for key in hjson_data:
             if song_data[key] != str(hjson_data[key]):
                 copy = True
-                print(f"They differ in {key}; {song_data[key]} vs {hjson_data[key]}")
+                logger.debug(f"They differ in {key}; {song_data[key]} vs {hjson_data[key]}")
 
         if copy: 
             change = True
@@ -119,16 +152,16 @@ if __name__ == "__main__":
                 os.rename(src=song_path, dst=renamed_path) ## side-effect
 
 
-    if change:
-        subprocess.run(["rclone", "sync",
-                        f"{LIVE_ARCHIVE_PATH}", 
-                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-                        "--dry-run", "--fast-list", "--checksum" ])
-        comfirmation = input("Type 'commit' to accept: \n")
-        if comfirmation == 'commit':
-            subprocess.run(["rclone", "sync",
-                        f"{LIVE_ARCHIVE_PATH}", 
-                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-                        "--fast-list", "--checksum" ])
-        else:
-            print("Synchronization Cancelled!")
+    # if change:
+    #     subprocess.run(["rclone", "sync",
+    #                     f"{LIVE_ARCHIVE_PATH}", 
+    #                     "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+    #                     "--dry-run", "--fast-list", "--checksum" ])
+    #     comfirmation = input("Type 'commit' to accept: \n")
+    #     if comfirmation == 'commit':
+    #         subprocess.run(["rclone", "sync",
+    #                     f"{LIVE_ARCHIVE_PATH}", 
+    #                     "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+    #                     "--fast-list", "--checksum" ])
+    #     else:
+    #         print("Synchronization Cancelled!")
