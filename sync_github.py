@@ -126,7 +126,7 @@ if __name__ == "__main__":
         
         copy = False
         for key in hjson_data:
-            if song_data[key] != str(hjson_data[key]):
+            if song_data[key] != str(hjson_data[key]): # Add safe .get() here
                 copy = True
                 logger.debug(f"They differ in {key}; {song_data[key]} vs {hjson_data[key]}")
 
