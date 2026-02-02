@@ -1,11 +1,7 @@
-import sys
 from datetime import date
 
 import pytest
-
-sys.path.append(r'C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\utils\my_tools')
-
-from data_verification import (
+from utils.data_verification import (
     ValidationError,
     _validate_version_in_timeframe,
     validate_payload,
