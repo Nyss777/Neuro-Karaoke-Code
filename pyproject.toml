@@ -1,0 +1,18 @@
+[project]
+name = "utils"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Nyss", email = "straussnycolas@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "hjson>=3.1.0",
+    "tinytag>=2.2.0",
+    "xxhash>=3.6.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.28,<0.10.0"]
+build-backend = "uv_build"
