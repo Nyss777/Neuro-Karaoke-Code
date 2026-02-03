@@ -1,7 +1,8 @@
 from datetime import date
 
 import pytest
-from utils.data_verification import (
+
+from ..src.metadata_utils.data_verification import (
     ValidationError,
     _validate_version_in_timeframe,
     validate_payload,

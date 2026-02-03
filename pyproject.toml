@@ -1,5 +1,5 @@
 [project]
-name = "utils"
+name = "metadata_utils"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -19,4 +19,4 @@ requires = ["uv_build>=0.9.28,<0.10.0"]
 build-backend = "uv_build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/utils"]
+packages = ["src/metadata_utils"]
