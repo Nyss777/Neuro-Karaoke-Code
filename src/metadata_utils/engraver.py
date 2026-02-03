@@ -121,12 +121,15 @@ def get_raw_json(path: Path | str) -> str:
     tags = TinyTag.get(path, tags=True, image=False)
 
     texts = tags.other.get("comment") or []
-    
+    if tags.comment:
+        texts.append(tags.comment)
+
     if not texts:
+        print("No comments found")
         return ""
     
-    if texts[0].startswith('{"Date":'):
-
-        return texts[0]
+    for text in texts:
+        if text.startswith('{"Date":'):
+            return text
 
     return ""
