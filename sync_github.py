@@ -7,10 +7,15 @@ from pathlib import Path
 from typing import cast
 
 import hjson
-from CF_Program import Song, get_song_data, process_new_tags, set_tags
-from create_hjsons import create_payload_from_dict
-from engraver import engrave_payload, get_all_mp3
-from hash_mutagen import get_audio_hash
+from metadata_utils.CF_Program import (
+    Song,
+    get_song_data,
+    process_new_tags,
+    set_tags_fast,
+)
+from metadata_utils.create_hjsons import create_payload_from_dict
+from metadata_utils.engraver import engrave_payload, get_all_mp3
+from metadata_utils.hash_mutagen import get_audio_hash
 
 LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Neuro Karaoke Archive'
 LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Metadata Sync"
@@ -71,7 +76,6 @@ def setup_logger():
 
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
-    return logger
 
 logger = logging.getLogger(__name__)
 
@@ -85,14 +89,16 @@ if __name__ == "__main__":
 
     # MAIN LOOP
     # 1. Pull latest from GitHub
-    # subprocess.run(["git", "pull", "origin", "main"])
+    subprocess.run(["git", "pull", "origin", "main"])
 
-    # changed_files = get_changed_files()
-    # logger.info(f"Number of changes: {len(changed_files)}")
-    # logger.info(f"DIF-TREE RESPONSE: {changed_files}")
+    changed_files = get_changed_files()
+    logger.info(f"DIF-TREE RESPONSE: {changed_files}")
 
-    ## PLACEHOLDER
-    changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
+    if not changed_files:
+        changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
+
+    logger.info(f"Number of changes: {len(changed_files)}")
+
 
     lookup_table = {metadata["xxHash"] : metadata
                     for file_path in changed_files
@@ -125,12 +131,13 @@ if __name__ == "__main__":
             continue
         
         copy = False
-        for key in hjson_data:
-            if song_data[key] != str(hjson_data[key]): # Add safe .get() here
+        for key, value in hjson_data.items():
+            if song_data.get(key, "") != (value if isinstance(value, str) else str(value)):
                 copy = True
                 logger.debug(f"They differ in {key}; {song_data[key]} vs {hjson_data[key]}")
 
         if copy: 
+
             change = True
             filename = os.path.basename(song_path)
             parent = os.path.basename(os.path.dirname(song_path))
@@ -145,23 +152,30 @@ if __name__ == "__main__":
             song_obj = Song(song_path)
             process_new_tags(song_obj)
 
-            set_tags(song_path, song_obj, None, None) ## side-effect
+            set_tags_fast(song_path, song_obj, None, None) ## side-effect
 
             if song_obj.filename != os.path.basename(song_path):
                 renamed_path = os.path.join(os.path.dirname(song_path), song_obj.filename)
                 os.rename(src=song_path, dst=renamed_path) ## side-effect
 
 
-    # if change:
-    #     subprocess.run(["rclone", "sync",
-    #                     f"{LIVE_ARCHIVE_PATH}", 
-    #                     "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-    #                     "--dry-run", "--fast-list", "--checksum" ])
-    #     comfirmation = input("Type 'commit' to accept: \n")
-    #     if comfirmation == 'commit':
-    #         subprocess.run(["rclone", "sync",
-    #                     f"{LIVE_ARCHIVE_PATH}", 
-    #                     "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-    #                     "--fast-list", "--checksum" ])
-    #     else:
-    #         print("Synchronization Cancelled!")
+    if change:
+
+        subprocess.run(["rclone", "sync",
+                        f"{LIVE_ARCHIVE_PATH}", 
+                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+                        "--dry-run", "--combined", "--fast-list", "--checksum" ])
+
+        comfirmation = input("Type 'commit' to accept: \n")
+
+        if comfirmation == 'commit':
+            subprocess.run(["rclone", "sync",
+                        f"{LIVE_ARCHIVE_PATH}", 
+                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+                        "--fast-list", "--checksum" ])
+
+        elif comfirmation == "reset":
+            subprocess.run(["git", "reset", "--hard", "ORIG_HEAD"])
+
+        else:
+            print("Synchronization Cancelled!")
