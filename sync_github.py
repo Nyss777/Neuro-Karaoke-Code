@@ -3,6 +3,7 @@ import os
 import shutil
 import subprocess
 from datetime import date
+from json import JSONDecodeError
 from pathlib import Path
 from typing import cast
 
@@ -18,7 +19,7 @@ from metadata_utils.engraver import engrave_payload, get_all_mp3
 from metadata_utils.hash_mutagen import get_audio_hash
 
 LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Neuro Karaoke Archive'
-LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Metadata Sync"
+LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync"
 BACKUP_PATH = r"C:\Users\Nyss\Downloads"
 
 
@@ -89,6 +90,7 @@ if __name__ == "__main__":
 
     # MAIN LOOP
     # 1. Pull latest from GitHub
+    subprocess.run(["git", "switch", "main"])
     subprocess.run(["git", "pull", "origin", "main"])
 
     changed_files = get_changed_files()
@@ -115,7 +117,11 @@ if __name__ == "__main__":
 
     change = False
     for song_path in song_files:
-        payload, song_data, _ = get_song_data(song_path)
+        try:
+            payload, song_data, _ = get_song_data(song_path)
+        except JSONDecodeError:
+            logger.exception(f"Couldn't read data for {song_path}")
+            continue
 
         xxhash_value = song_data.get("xxHash", None) ## If this is too slow maybe use regex on the payload
 
@@ -134,7 +140,7 @@ if __name__ == "__main__":
         for key, value in hjson_data.items():
             if song_data.get(key, "") != (value if isinstance(value, str) else str(value)):
                 copy = True
-                logger.debug(f"They differ in {key}; {song_data[key]} vs {hjson_data[key]}")
+                logger.debug(f"They differ in {key}; {song_data.get(key, "")} vs {hjson_data[key]}")
 
         if copy: 
 
