@@ -1,18 +1,23 @@
+import json
+import logging
+import re
+from json import JSONDecodeError
 from pathlib import Path
 from typing import cast
 
 from mutagen.id3 import COMM, ID3, Frame, ID3NoHeaderError
-
-# from mutagen.mp3 import MP3
 from tinytag import TinyTag
 
+logger = logging.getLogger(__name__)
 
-def get_all_mp3(directory: Path | str) -> list[str]: 
+fields = ['Date', 'Title', 'Artist', 'CoverArtist', 'Version', 'Discnumber', 'Track', 'Comment', 'Special', 'xxHash']
+
+def get_all_mp3(directory: Path | str) -> list[Path]: 
     """
     Function that gathers all mp3 files from a directory.
     """
     p = Path(directory)
-    return [(str(f)) for f in p.rglob('*.mp3') if f.is_file()]
+    return [f for f in p.rglob('*.mp3') if f.is_file()]
 
 def get_tag_value(tags: ID3, tag: str) -> (str | None) :
     frame = cast(Frame | None, tags.get(tag))
@@ -85,21 +90,7 @@ def build_payload(filename: str, date: str, title: str, artist: str,
 
     return comm_ved
 
-# def engrave_payload(path: str, song_data: str) -> None:
-
-#     audio = MP3(path, ID3=ID3)
-    
-#     if audio.tags is None:
-#         audio.add_tags()
-
-#     NEW_COMM_VED_FRAME = COMM(encoding=3,lang='ved', desc='',text=[song_data])
-
-#     assert audio.tags is not None
-#     audio.tags.add(NEW_COMM_VED_FRAME)
-
-#     audio.save()
-
-def engrave_payload(path: str, song_data: str) -> None:
+def engrave_payload(path: Path | str, song_data: str) -> None:
     try:
         tags = ID3(path)
     except ID3NoHeaderError:
@@ -111,7 +102,7 @@ def engrave_payload(path: str, song_data: str) -> None:
 
 def get_raw_json(path: Path | str) -> str:
 
-    """Return raw JSON string or None."""
+    """Return raw JSON string or an empty string."""
 
     path = Path(path)
 
@@ -133,3 +124,45 @@ def get_raw_json(path: Path | str) -> str:
             return text
 
     return ""
+
+def get_raw(json: str, key: str) -> str:
+
+    pattern = f"\"{key}\":\"(.*?)\""
+
+    match = re.search(pattern, json)
+
+    if match is None:
+        return ""
+    else:
+        return match.group(1)
+
+def get_song_data_raw(song: Path) -> dict[str, str]:
+
+    """Quicker way to get a data dictionary, may not be as robust"""
+
+    payload = get_raw_json(song)
+    # "fields" assumes that the keys are constant, true for now but may change in the future.
+    result = {field: get_raw(payload, field) for field in fields}
+    return result
+
+def get_song_data(song_path: Path) -> tuple[str, dict[str, str], ID3]:
+    song_payload = None
+    song_data = {}
+
+    try:
+        tags = ID3(song_path)
+
+    except ID3NoHeaderError:
+        logger.warning(f"Program unable to initialize ID3 tags for {song_path.name}")
+        tags = ID3()
+
+    song_payload = get_content_from_tags(tags, "COMM::ved")
+
+    try:
+        if song_payload:
+            song_data : dict[str, str] = json.loads(song_payload)
+    except JSONDecodeError:
+        logger.exception("File couldn't be processed! Error decoding the comment!")
+        raise
+
+    return song_payload, song_data, tags

@@ -1,7 +1,5 @@
-import json
 import logging
 import unicodedata
-from json import JSONDecodeError
 from pathlib import Path
 from typing import TypedDict
 
@@ -18,9 +16,8 @@ from mutagen.id3 import (
     TRCK,
     ID3NoHeaderError,
 )
-from mutagen.mp3 import MP3
 
-from .engraver import get_content_from_tags
+from .engraver import get_song_data
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,7 @@ class Song:
     comment: str = '' 
     track: str = ''
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: Path):
         self.path = path
 
 REPLACEMENT_MAP = { "%t":"Title",
@@ -95,82 +92,8 @@ def _substitution(new_filename_pattern: str, song_data: dict[str, str]) -> str:
     for s_key in secondary_map:
         new_value = new_value.replace(s_key, secondary_map[s_key](song_data))
     return new_value
-
-def get_song_data(song_path: str | Path) -> tuple[str, dict[str, str], ID3]:
-    song_payload = None
-    song_data = {}
-
-    audio = MP3(song_path, ID3=ID3)
-
-    if audio.tags is None:
-        audio.add_tags()
-
-    if not isinstance(audio.tags, ID3):
-        msg = "Program unable to initialize ID3 tags for song"
-        logger.error(msg)
-        raise TypeError(msg)
-
-    song_payload = get_content_from_tags(audio.tags, "COMM::ved")
-
-    try:
-        if song_payload:
-            song_data : dict[str, str] = json.loads(song_payload)
-    except JSONDecodeError:
-        logger.exception("File couldn't be processed! Error decoding the comment!")
-        raise
     
-    return song_payload, song_data, audio.tags
-
-def set_tags(path: str, song: Song, image_type: (str | None), image_data: (bytes | None) = None) -> None:
-
-    audio = MP3(path, ID3=ID3)
-    
-    if audio.tags is None:
-        audio.add_tags()
-
-    if not isinstance(audio.tags, ID3):
-        msg = "Program unable to initialize ID3 tags for song"
-        logger.error(msg)
-        raise TypeError(msg)
-
-    audio.tags.delall("TXXX")
-    audio.tags.add(TPE1(encoding=3, text=[song.artist]))
-    audio.tags.add(TALB(encoding=3, text=[song.album]))
-    audio.tags.add(TIT2(encoding=3, text=[song.title]))
-    audio.tags.add(TRCK(encoding=3, text=[song.track]))
-    audio.tags.add(TPE2(encoding=3, text=["QueenPb + vedal987"]))
-    audio.tags.add(TDRC(encoding=3, text=[song.comment[:4]]))
-    audio.tags.add(TPOS(encoding=3, text=[song.album.replace("Disc ", "")]))
-
-    NEW_COMM_ENG_FRAME = COMM(encoding=2,lang='eng', desc='',text=[song.comment])
-    audio.tags.add(NEW_COMM_ENG_FRAME)
-    NEW_COMM_V1_ENG_FRAME = COMM(encoding=2,lang='eng', desc='ID3v1 Comment',text=[song.comment])
-    audio.tags.add(NEW_COMM_V1_ENG_FRAME)
-    
-    if image_data and image_type and (image_type.lower() in ("jpeg", "png")):
-
-        audio.tags.delall('APIC') 
-            
-        audio.tags.add(
-            APIC(
-                encoding=3,       
-                mime=f'image/{image_type}', 
-                type=3, 
-                desc='Cover (Front)', 
-                data=image_data
-            )
-        )
-        logger.debug("Image added to APIC frame")
-    # else:
-        # logger.debug(
-        #     f"image_data: {image_data[:10] if isinstance(image_data, bytes) else None}; "
-        #     f"image_type: {image_type};\n"
-        #     "No image was added to song"
-        # )
-
-    audio.save()
-    
-def set_tags_fast(path: str, song: Song, image_type: (str | None), image_data: (bytes | None) = None) -> None:
+def set_tags(path: str, song: Song, image_type: str|None, image_data: bytes|None = None) -> None:
 
     try:
         tags = ID3(path)
@@ -199,22 +122,15 @@ def set_tags_fast(path: str, song: Song, image_type: (str | None), image_data: (
         tags.add(
             APIC(
                 encoding=3,       
-                mime=f'image/{image_type}', 
+                mime=f'image/{image_type.lower()}', 
                 type=3, 
                 desc='Cover (Front)', 
                 data=image_data
             )
         )
         logger.debug("Image added to APIC frame")
-    # else:
-        # logger.debug(
-        #     f"image_data: {image_data[:10] if isinstance(image_data, bytes) else None}; "
-        #     f"image_type: {image_type};\n"
-        #     "No image was added to song"
-        # )
 
     tags.save(path)
-
 
 def sanitize_filename(filename: str) -> str:
     FORBIDDEN_CHARS = {
@@ -240,7 +156,7 @@ def sanitize_filename(filename: str) -> str:
 
     return filename
 
-def process_new_tags(song: Song, song_data: (dict[str, str] | None) = None) -> None :
+def process_new_tags(song: Song, song_data: dict[str, str] | None = None) -> None :
     # added song parameter just in the case of wanting to skip the get_song_data overhead 
 
     if not song_data:
