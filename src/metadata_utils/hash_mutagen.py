@@ -7,7 +7,7 @@ def get_audio_hash(file_path: Path) -> str | None:
     try:
 
         file_size = file_path.stat().st_size
-        if file_size < 1_000_000:
+        if file_size < 3000:
             print(f"{file_path.name} is too small!")
             return None
 
@@ -19,8 +19,14 @@ def get_audio_hash(file_path: Path) -> str | None:
             if f.read(3) == b'TAG':
                 footer_size = 128
             
-            end_index = file_size - footer_size - 1_000_000 ### about a Mb offset for the audio
-            start_index = end_index - 987 ### reads 987 bytes for the hash
+
+            if (file_size - footer_size - 1_000_000) > 987: # check to prevent negative indexes
+                end_index = file_size - footer_size - 1_000_000 ### about a Mb offset for the audio
+
+            else:
+                end_index = int((file_size - footer_size)/2)
+
+            start_index = end_index - 987 ### reads a 987 bytes for the hash
 
             raw_audio = file_data[start_index:end_index]
 
