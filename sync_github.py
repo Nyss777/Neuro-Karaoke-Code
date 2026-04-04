@@ -1,24 +1,23 @@
+import csv
 import logging
 import os
 import shutil
 import subprocess
 from datetime import date
-from json import JSONDecodeError
 from pathlib import Path
 from typing import cast
 
 import hjson
 from metadata_utils.CF_Program import (
     Song,
-    get_song_data,
     process_new_tags,
-    set_tags_fast,
+    set_tags,
 )
 from metadata_utils.create_hjsons import create_payload_from_dict
-from metadata_utils.engraver import engrave_payload, get_all_mp3
-from metadata_utils.hash_mutagen import get_audio_hash
+from metadata_utils.engraver import engrave_payload, get_all_mp3, get_song_data_raw
+from metadata_utils.hash_mutagen import get_path_hash
 
-LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Neuro Karaoke Archive'
+LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive'
 LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync"
 BACKUP_PATH = r"C:\Users\Nyss\Downloads"
 
@@ -53,8 +52,9 @@ def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
             metadata = cast(dict[str, (str | int | float)], hjson.load(f))
         return metadata
 
-    except Exception:
+    except Exception as e:
         print(f"Unable to process metadata for {os.path.basename(hjson_path)}!")
+        print(e)
         return None
 
 def setup_logger():
@@ -116,26 +116,31 @@ if __name__ == "__main__":
         logger.warning("No songs found! Please verify the path")
 
     change = False
-    for song_path in song_files:
-        try:
-            payload, song_data, _ = get_song_data(song_path)
-        except JSONDecodeError:
-            logger.exception(f"Couldn't read data for {song_path}")
-            continue
 
+    with open(r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\hash_conversion.csv", 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        conversion_table = {row['Old Hash']: row['New Hash'] for row in reader}
+
+    for song_path in song_files:
+        song_data = get_song_data_raw(song_path)
+        
         xxhash_value = song_data.get("xxHash", None) ## If this is too slow maybe use regex on the payload
 
+
         if not xxhash_value:
-            xxhash_value = get_audio_hash(song_path)
+            xxhash_value = get_path_hash(song_path)
         if not xxhash_value:
             logger.warning(f"Unable to get xxhash for {song_path}")
             continue
         
         hjson_data = lookup_table.get(xxhash_value)
 
+        if hjson_data is None:
+            hjson_data = lookup_table.get(conversion_table.get(xxhash_value,''))
+        
         if not hjson_data:
             continue
-        
+
         copy = False
         for key, value in hjson_data.items():
             if song_data.get(key, "") != (value if isinstance(value, str) else str(value)):
@@ -152,33 +157,43 @@ if __name__ == "__main__":
             os.makedirs(os.path.dirname(backup_song_path), exist_ok=True) ## side-effect
             shutil.copy2(src=song_path, dst=backup_song_path) ## side-effect
 
-            new_payload = create_payload_from_dict(hjson_data=hjson_data, song_path=song_path, filename=filename)
+            new_payload = create_payload_from_dict(hjson_data=hjson_data, song_path=str(song_path), filename=filename)
             engrave_payload(path=song_path, song_data=new_payload) ## side-effect
 
             song_obj = Song(song_path)
             process_new_tags(song_obj)
 
-            set_tags_fast(song_path, song_obj, None, None) ## side-effect
+            set_tags(str(song_path), song_obj, None, None) ## side-effect
 
             if song_obj.filename != os.path.basename(song_path):
                 renamed_path = os.path.join(os.path.dirname(song_path), song_obj.filename)
                 os.rename(src=song_path, dst=renamed_path) ## side-effect
 
-
+    change = True
     if change:
 
         subprocess.run(["rclone", "sync",
                         f"{LIVE_ARCHIVE_PATH}", 
                         "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-                        "--dry-run", "--combined", "--fast-list", "--checksum" ])
+                        "--exclude", ".stfolder/**",
+                        "--exclude", ".stversions/**",
+                        "--dry-run",
+                        "--combined",
+                        "--fast-list",
+                        "--checksum"
+                        ])
 
         comfirmation = input("Type 'commit' to accept: \n")
 
         if comfirmation == 'commit':
-            subprocess.run(["rclone", "sync",
-                        f"{LIVE_ARCHIVE_PATH}", 
-                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
-                        "--fast-list", "--checksum" ])
+            subprocess.run(["rclone", "sync","-P",
+                            f"{LIVE_ARCHIVE_PATH}", 
+                            "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+                            "--exclude", ".stfolder/**",
+                            "--exclude", ".stversions/**",
+                            "--fast-list",
+                            "--checksum"
+                            ])
 
         elif comfirmation == "reset":
             subprocess.run(["git", "reset", "--hard", "ORIG_HEAD"])
