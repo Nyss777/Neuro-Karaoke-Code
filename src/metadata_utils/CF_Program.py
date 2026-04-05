@@ -1,9 +1,12 @@
 import json
 import logging
+import os
 import re
 import unicodedata
 from pathlib import Path
 
+import hjson
+import xxhash
 from mutagen.id3 import (
     APIC,
     COMM,
@@ -18,8 +21,6 @@ from mutagen.id3 import (
     ID3NoHeaderError,
 )
 from tinytag import TinyTag
-
-# from .data_verification import validate_payload
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +110,13 @@ class Song:
     def __init__(self, path: Path | str):
         self.path = Path(path)
 
+        if not self.path.exists() or self.path.is_dir():
+            raise ValueError("The specified path is invalid!",
+                            f"Invalid path: {self.path}")
+
         if self.path.suffix != ".mp3":
-            raise ValueError("Incompatible format, only compatible with mp3s!")
+            raise ValueError("Incompatible format, only compatible with mp3s!",
+                            f"Invalid path: {self.path}")
 
         self.load()
 
@@ -120,27 +126,27 @@ class Song:
 
     def save(self) -> None:
         self.set_tags()
+        self.rename()
 
     def load_hjson(self, hjson_data: dict[str, (str | int | float)]) -> None:
 
         data = {
-        field: str(hjson_data.get(field)) for field in self.FIELDS
+        field: str(hjson_data.get(field, "")) for field in self.FIELDS
         }
 
-        if data["Special"] == "None":
+        if data["Special"] == "":
             data["Special"] = "0"
-
-        # validate_payload(payload_kwargs)
-        
+      
         self._load_dict(data)
 
     def _load_dict(self, d: dict[str, str]):
 
         for field in self.FIELDS:
             if field in d:
+                # print(f"{field} - {d[field]}")
                 setattr(self, field, d[field])
             else:            
-                logger.warning(f"Missing key: {field} - {self.filename}")
+                print(f"Missing key: {field} - {self.filename}")
 
     def _get_song_data(self) -> dict[str, str]:
 
@@ -190,11 +196,10 @@ class Song:
 
         for field in self.FIELDS:
             field_value = getattr(self, field)
+            field_value = field_value if field_value else "None"
             payload[field] = field_value
         
-        payload["Comment"] = self.Comment if self.Comment else "None"
-        
-        return json.dumps(payload)
+        return json.dumps(payload, separators=(',', ':'))
     
     def set_tags(self) -> None:
 
@@ -234,6 +239,72 @@ class Song:
 
         tags.save(self.path)
 
+    def rename(self) -> None:
+        new_path = self.path.with_name(self.filename)
+
+        if new_path == self.path:
+            return
+
+        if new_path.exists() and new_path.is_file():
+            raise FileExistsError(f"{new_path} already exists!")
+        else:
+            try:
+                os.rename(self.path, new_path)
+
+            except Exception:
+                raise
+
+            else:
+                self.path = new_path
+
+    def get_hash(self) -> str | None:
+        try:
+            file_size = self.path.stat().st_size
+            if file_size < 3000:
+                print(f"{self.path.name} is too small!")
+                return None
+
+            with open(self.path, 'rb') as f:
+                xxhash = get_audio_hash(f.read(), file_size)
+                return xxhash
+                
+        except Exception as e:
+            print(f"Error processing {self.path}: {e}")
+            return None
+
+    def make_hjson(self, output_folder: Path | str):
+
+        output_folder = Path(output_folder)
+
+        if not (output_folder.exists() and output_folder.is_dir()):
+            print("Please Pass a Valid Folder!",
+                 f"Invalid Folder: {output_folder}")
+            return
+
+        song_data = {field: getattr(self, field) for field in self.FIELDS}
+
+        if not song_data:
+            return
+
+        filename = self.filename.replace(".mp3", ".hjson")
+        directory = self.path.parent.name
+        output_location = output_folder / directory / filename
+
+        song_data["Discnumber"] = int(self.Discnumber)
+        song_data["Special"] = int(self.Special)
+
+        if '.' in self.Version:
+            song_data["Version"] = float(self.Version)
+        else:
+            song_data["Version"] = int(self.Version)
+
+        if '/' not in self.Track:
+            song_data["Track"] = int(self.Track)
+
+
+        os.makedirs(os.path.dirname(output_location), exist_ok=True)
+        with open(output_location, 'w', encoding='utf-8') as f:
+            hjson.dump(song_data, f)
 
 def get_all_mp3_as_obj(directory: str) -> list[Song]: 
     """
@@ -266,3 +337,30 @@ def sanitize_filename(filename: str) -> str:
 
     return filename
 
+def get_audio_hash(file: bytes, file_size: int) -> (str | None):
+    try:
+
+        footer_size = 0
+         # Seek 128 bytes from the end (2)
+        if file[-128:-128+3] == b'TAG':
+            # print("header found!")
+            footer_size = 128
+        # else:
+        #     print(f"{file[-128:-128+3]} vs {b'TAG'}")
+
+        if (file_size - footer_size - 1_000_000) > 987: # check to prevent negative indexes
+            end_index = file_size - footer_size - 1_000_000 ### about a Mb offset for the audio
+
+        else:
+            end_index = int((file_size - footer_size)/2)
+
+        start_index = end_index - 987 ### reads a 987 bytes for the hash
+
+        raw_audio = file[start_index:end_index]
+
+        # 4. Hash the raw audio
+        return xxhash.xxh64(raw_audio).hexdigest()
+
+    except Exception:
+        logging.exception
+        return None
