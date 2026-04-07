@@ -1,4 +1,4 @@
-import csv
+# import csv
 import logging
 import os
 import shutil
@@ -8,14 +8,7 @@ from pathlib import Path
 from typing import cast
 
 import hjson
-from metadata_utils.CF_Program import (
-    Song,
-    process_new_tags,
-    set_tags,
-)
-from metadata_utils.create_hjsons import create_payload_from_dict
-from metadata_utils.engraver import engrave_payload, get_all_mp3, get_song_data_raw
-from metadata_utils.hash_mutagen import get_path_hash
+from metadata_utils.CF_Program import get_all_mp3_as_obj
 
 LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive'
 LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync"
@@ -62,7 +55,7 @@ def setup_logger():
 
     script_dir = Path(__file__).parent.absolute()
 
-    log_path = script_dir / f'sync [{date.today()}].log'
+    log_path = script_dir / "logs" /f'sync_[{date.today()}].log'
 
     logger.setLevel(logging.DEBUG)
 
@@ -107,67 +100,55 @@ if __name__ == "__main__":
                     if file_path.endswith('.hjson')
                     and (metadata := get_metadata(file_path))}
 
-    song_files = get_all_mp3(LIVE_ARCHIVE_PATH)
+    song_files = get_all_mp3_as_obj(LIVE_ARCHIVE_PATH)
 
     song_files_length = len(song_files)
     if song_files_length > 0:
         logger.info(f"Songs Found: {len(song_files)}")
     else:
-        logger.warning("No songs found! Please verify the path")
+        logger.error("No songs found! Please verify the path")
 
     change = False
 
-    with open(r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\hash_conversion.csv", 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        conversion_table = {row['Old Hash']: row['New Hash'] for row in reader}
+    # with open(r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\hash_conversion.csv", 'r', encoding='utf-8') as f:
+    #     reader = csv.DictReader(f)
+    #     conversion_table = {row['Old Hash']: row['New Hash'] for row in reader}
 
-    for song_path in song_files:
-        song_data = get_song_data_raw(song_path)
+    for song in song_files:
         
-        xxhash_value = song_data.get("xxHash", None) ## If this is too slow maybe use regex on the payload
-
+        xxhash_value = song.xxHash if song.xxHash else song.get_hash()
 
         if not xxhash_value:
-            xxhash_value = get_path_hash(song_path)
-        if not xxhash_value:
-            logger.warning(f"Unable to get xxhash for {song_path}")
+            logger.warning(f"Unable to get xxhash for {song.path}")
             continue
         
         hjson_data = lookup_table.get(xxhash_value)
 
-        if hjson_data is None:
-            hjson_data = lookup_table.get(conversion_table.get(xxhash_value,''))
+        # if hjson_data is None:
+        #     hjson_data = lookup_table.get(conversion_table.get(xxhash_value,''))
         
         if not hjson_data:
+            logger.warning(f"No hjson data for {song.filename}")
             continue
 
         copy = False
         for key, value in hjson_data.items():
-            if song_data.get(key, "") != (value if isinstance(value, str) else str(value)):
+            if getattr(song, key, "") != (value if isinstance(value, str) else str(value)):
                 copy = True
-                logger.debug(f"They differ in {key}; {song_data.get(key, "")} vs {hjson_data[key]}")
+                logger.debug(f"They differ in {key}; {getattr(song, key, "")} vs {hjson_data[key]}")
 
         if copy: 
 
             change = True
-            filename = os.path.basename(song_path)
-            parent = os.path.basename(os.path.dirname(song_path))
-            backup_song_path = os.path.join(BACKUP_PATH, f"Backup [{date.today()}]", parent, filename)
+            filename = song.path.name
+            parent = song.path.parent.name
+            backup_song_path = Path(BACKUP_PATH) / f"Backup [{date.today()}]" / parent / filename
 
             os.makedirs(os.path.dirname(backup_song_path), exist_ok=True) ## side-effect
-            shutil.copy2(src=song_path, dst=backup_song_path) ## side-effect
+            shutil.copy2(src=song.path, dst=backup_song_path) ## side-effect
 
-            new_payload = create_payload_from_dict(hjson_data=hjson_data, song_path=str(song_path), filename=filename)
-            engrave_payload(path=song_path, song_data=new_payload) ## side-effect
-
-            song_obj = Song(song_path)
-            process_new_tags(song_obj)
-
-            set_tags(str(song_path), song_obj, None, None) ## side-effect
-
-            if song_obj.filename != os.path.basename(song_path):
-                renamed_path = os.path.join(os.path.dirname(song_path), song_obj.filename)
-                os.rename(src=song_path, dst=renamed_path) ## side-effect
+            song.load_hjson(hjson_data)
+            song.save()
 
     change = True
     if change:
