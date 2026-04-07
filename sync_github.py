@@ -1,4 +1,3 @@
-# import csv
 import logging
 import os
 import shutil
@@ -110,10 +109,6 @@ if __name__ == "__main__":
 
     change = False
 
-    # with open(r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\hash_conversion.csv", 'r', encoding='utf-8') as f:
-    #     reader = csv.DictReader(f)
-    #     conversion_table = {row['Old Hash']: row['New Hash'] for row in reader}
-
     for song in song_files:
         
         xxhash_value = song.xxHash if song.xxHash else song.get_hash()
@@ -123,9 +118,6 @@ if __name__ == "__main__":
             continue
         
         hjson_data = lookup_table.get(xxhash_value)
-
-        # if hjson_data is None:
-        #     hjson_data = lookup_table.get(conversion_table.get(xxhash_value,''))
         
         if not hjson_data:
             logger.warning(f"No hjson data for {song.filename}")
