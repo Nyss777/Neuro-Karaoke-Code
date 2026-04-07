@@ -20,22 +20,6 @@ def get_all_hjson(directory: str) -> list[str]:
     """
     p = Path(directory)
     return [(str(f)) for f in p.rglob('*.hjson') if f.is_file()]
-
-def get_changed_files() -> list[str]:
-    # Compare ORIG_HEAD (before pull) with HEAD (after pull)
-    cmd = [
-        "git", "diff-tree", "-r", 
-        "--no-commit-id", 
-        "--name-only", 
-        "ORIG_HEAD", "HEAD" 
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    
-    # filters out empty strings so you get a true empty list [] if nothing changed
-    files = [f for f in result.stdout.strip().split('\n') if f]
-    
-    return files
     
 def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
     # 1. Load the HJSON metadata
@@ -80,19 +64,11 @@ if __name__ == "__main__":
 
     os.chdir(LOCAL_REPO_LOCATION_PATH)
 
-    # MAIN LOOP
-    # 1. Pull latest from GitHub
     subprocess.run(["git", "switch", "main"])
-    subprocess.run(["git", "pull", "origin", "main"])
 
-    changed_files = get_changed_files()
-    logger.info(f"DIF-TREE RESPONSE: {changed_files}")
-
-    if not changed_files:
-        changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
+    changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
 
     logger.info(f"Number of changes: {len(changed_files)}")
-
 
     lookup_table = {metadata["xxHash"] : metadata
                     for file_path in changed_files
