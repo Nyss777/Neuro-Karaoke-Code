@@ -10,6 +10,7 @@ from thefuzz import process
 RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
 IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
 LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
+NEW_HJSON_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync\DISC 8 - Third Anniversary (2025-12-19 - Present)"
 
 def get_previous_wednesday(dt: datetime | None = None):
     if dt is None:
@@ -134,3 +135,7 @@ if __name__ == "__main__":
         print(song_obj.filename)
 
         song_obj.save()
+
+        song_obj.make_hjson(NEW_HJSON_PATH)
+
+        
