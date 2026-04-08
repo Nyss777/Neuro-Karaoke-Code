@@ -1,6 +1,6 @@
+import datetime
 import os
 import re
-from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
@@ -12,9 +12,7 @@ IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\
 LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
 NEW_HJSON_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync\DISC 8 - Third Anniversary (2025-12-19 - Present)"
 
-def get_previous_wednesday(dt: datetime | None = None):
-    if dt is None:
-        dt = datetime.now()
+def get_previous_wednesday(dt: datetime.date):
         
     # weekday(): Mon=0, Tue=1, Wed=2...
     # (current_weekday - target_weekday) % 7
@@ -26,7 +24,7 @@ def get_previous_wednesday(dt: datetime | None = None):
     # if days_ago == 0:
     #     days_ago = 7
         
-    return dt - timedelta(days=days_ago)
+    return str(dt - datetime.timedelta(days=days_ago))
 
 def get_last_track(p: Path):
     ss = get_all_mp3_as_obj(p)
@@ -51,7 +49,7 @@ def parse_discord_file(source: str) -> tuple[dict[str, tuple[str, str, bool]], s
             if date_match:
                 break
 
-        date = date_match.group(1) if date_match else get_previous_wednesday().strftime("%Y-%m-%d")
+        date = date_match.group(1) if date_match else get_previous_wednesday(today)
         cover_artist = cover_artist_match.group(1) if cover_artist_match else "Neuro"
 
         for line in f:
@@ -72,14 +70,14 @@ def parse_discord_file(source: str) -> tuple[dict[str, tuple[str, str, bool]], s
 
 if __name__ == "__main__":
 
-    today_date = date.today()
+    today = datetime.date.today()
     with open(IMAGE_FILE_PATH, 'rb') as albumart:
             image_data = albumart.read()
 
     #DEST_LOC = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
-    DEST_LOC = Path(f"C:\\Users\\Nyss\\Downloads\\{today_date}_Processed")
+    DEST_LOC = Path(f"C:\\Users\\Nyss\\Downloads\\{today}_Processed")
 
-    listing = f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today_date}.txt"
+    listing = f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today}.txt"
 
     songs, date, cover_artist = parse_discord_file(source=listing)
 
