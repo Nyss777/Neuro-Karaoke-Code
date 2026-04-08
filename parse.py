@@ -1,12 +1,15 @@
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from remuxer import remux_song
 from thefuzz import process
 
+RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
+IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
+LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
 
 def get_previous_wednesday(dt: datetime | None = None):
     if dt is None:
@@ -24,124 +27,110 @@ def get_previous_wednesday(dt: datetime | None = None):
         
     return dt - timedelta(days=days_ago)
 
-# Example usage:
-print(get_previous_wednesday().strftime("%Y-%m-%d"))
+def get_last_track(p: Path):
+    ss = get_all_mp3_as_obj(p)
+    return max([int(s.Track) for s in ss])
 
-listing = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Autoparsing\2026-03-26.txt"
-image_file_path = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
+def parse_discord_file(source: str) -> tuple[dict[str, tuple[str, str, bool]], str, str]:
 
-cover_artist_pattern = r"(\w+) Karaoke"
-date_patterns = [r"(\d{4}-\d{2}-\d{2})"]
-# date_patterns = [r"(\d{4}-\d{2}-\d{2})", r"(\d{2}/\d{2}/\d{4})"]
-duet_pattern = "[Duet]"
+    cover_artist_pattern = r"(\w+) Karaoke"
+    date_patterns = [r"(\d{4}-\d{2}-\d{2})"]
+    duet_pattern = "[Duet]"
 
-songs: list[dict[str, tuple[str, str, bool]]] = []
+    songs: dict[str, tuple[str, str, bool]] = {}
 
-raw_songs = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
+    with open(source, 'r', encoding='utf-8') as f:
+        header = f.readline()
 
-last_track = 133
+        cover_artist_match = re.search(cover_artist_pattern, header)
 
-#DEST_LOC = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
-DEST_LOC = Path(r"C:\Users\Nyss\Downloads\2026-03-26_Processed")
+        date_match = None
+        for date_pattern in date_patterns:
+            date_match = re.search(date_pattern, header)
+            if date_match:
+                break
 
-with open(listing, 'r', encoding='utf-8') as f:
-    header = f.readline()
+        date = date_match.group(1) if date_match else get_previous_wednesday().strftime("%Y-%m-%d")
+        cover_artist = cover_artist_match.group(1) if cover_artist_match else "Neuro"
 
-    cover_artist_match = re.search(cover_artist_pattern, header)
+        for line in f:
 
-    date_match = None
-    for date_pattern in date_patterns:
-        date_match = re.search(date_pattern, header)
-        if date_match:
-            break
+            if line.strip() == "":
+                continue
 
-    date = date_match.group(1) if date_match else get_previous_wednesday().strftime("%Y-%m-%d")
-    cover_artist = cover_artist_match.group(1) if cover_artist_match else "Neuro"
+            is_duet = False
+            if duet_pattern in line:
+                is_duet = True
+            line = line.replace(duet_pattern, "")
 
-    for line in f:
+            title, artist = [x.strip() for x in line.split("-", 1)]
 
-        if line.strip() == "":
+            songs[title] = (title, artist, is_duet) # Assumes unique titles, fails otherwise
+
+    return songs, date, cover_artist
+
+if __name__ == "__main__":
+
+    today_date = date.today()
+    with open(IMAGE_FILE_PATH, 'rb') as albumart:
+            image_data = albumart.read()
+
+    #DEST_LOC = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
+    DEST_LOC = Path(f"C:\\Users\\Nyss\\Downloads\\{today_date}_Processed")
+
+    listing = f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today_date}.txt"
+
+    songs, date, cover_artist = parse_discord_file(source=listing)
+
+    raw_files = get_all_mp3_as_obj(RAW_SONGS_PATH)
+
+    matches: list[tuple[Song, tuple[str, str, bool]]] = []
+
+    for song in songs:
+
+        result = process.extractOne(  # extractOne returns (match, confidence_score)
+            song, # Song title
+            raw_files, 
+            processor=lambda s: s.path.stem
+            )
+            # print(f"{raw.stem} -> {result[0]} with {result[1]}% confidence")
+            
+        if result:
+            matches.append((result[0], songs[song]))
+
+    print(matches)
+
+    for i, match in enumerate(matches):
+
+        song_obj = match[0]
+
+        os.makedirs(DEST_LOC, exist_ok=True)
+
+        new_path = DEST_LOC / song_obj.path.name
+
+        remux_song(song_obj.path, new_path)
+        song_obj.path = new_path
+        
+        xxhash = song_obj.get_hash()
+        if xxhash is None:
+            print(f"Error generating hash for {match}")
             continue
 
-        is_duet = False
-        if duet_pattern in line:
-            is_duet = True
-        line = line.replace(duet_pattern, "")
+        data: dict[str, str] = {
+            "Date": date,
+            "Title": match[1][0],
+            "Artist": match[1][1],
+            "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
+            "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
+            "Discnumber": "8",
+            "Track": str(get_last_track(LATEST_ALBUM_PATH) + i + 1),
+            "Comment": "None",
+            "Special": "0",
+            "xxHash": xxhash
+        }
+        
+        song_obj._load_dict(data)
 
-        title, artist = [x.strip() for x in line.split("-", 1)]
+        print(song_obj.filename)
 
-        songs.append({title : (title, artist, is_duet)})
-
-
-raw_files = get_all_mp3_as_obj(raw_songs)
-
-matches: list[tuple[Song, tuple[str, str, bool]]] = []
-
-# for raw in raw_files:
-#     # extractOne returns (match, confidence_score)
-#     result = process.extractOne(raw.stem, songs)
-#     # print(f"{raw.stem} -> {result[0]} with {result[1]}% confidence")
-#     if result:
-#         (inner_tuple,) = result[0].values()
-#         matches.append((raw, inner_tuple))
-
-for song in songs:
-    # extractOne returns (match, confidence_score)
-    result = process.extractOne(list(song.keys())[0], [raw.path.stem for raw in raw_files])
-    # print(f"{raw.stem} -> {result[0]} with {result[1]}% confidence")
-    if result:
-        (inner_tuple,) = song.values()
-        matches.append(([x for x in raw_files if x.path.stem == result[0]][0], inner_tuple))
-
-print(matches)
-
-image_data = None
-with open(image_file_path, 'rb') as albumart:
-        image_data = albumart.read()
-
-for i, match in enumerate(matches):
-
-    song_obj = Song(match[0])
-
-    os.makedirs(DEST_LOC, exist_ok=True)
-
-    new_path = DEST_LOC / song_obj.path.name
-
-    remux_song(song_obj.path, new_path)
-    
-    xxhash = get_path_hash(match[0])
-    if xxhash is None:
-        print(f"Error generating hash for {match}")
-        continue
-
-
-    data: dict[str, str | int | float] = {
-        "Date": date,
-        "Title": match[1][0],
-        "Artist": match[1][1],
-        "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
-        "Version": 1 if (match[1][2] or cover_artist == "Evil") else 3,
-        "Discnumber": 8,
-        "Track": last_track + i + 1,
-        "Comment": "None",
-        "Special": 0,
-        "xxHash": xxhash
-    }
-    payload = create_payload_from_dict(data, str(match[0]))
-
-    process_new_tags(song_obj, {k : v if isinstance(v, str) else f"{v}" for k, v in data.items()})
-
-    set_tags(str(new_path), song_obj, "jpeg", image_data)
-
-    engrave_payload(path=new_path, song_data=payload)
-
-
-    print(song_obj.filename)
-
-    # if Path(song_obj.filename).exists():
-    #     Path(song_obj.filename).unlink()
-    #     print("File deleted successfully.")
-    # else: 
-    #     print("doesnt exist")
-
-    os.rename(DEST_LOC / song_obj.path.name, DEST_LOC / song_obj.filename)
+        song_obj.save()
