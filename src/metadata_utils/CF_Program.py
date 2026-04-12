@@ -11,6 +11,7 @@ from mutagen.id3 import (
     APIC,
     COMM,
     ID3,
+    SYLT,
     TALB,
     TDRC,
     TIT2,
@@ -18,17 +19,29 @@ from mutagen.id3 import (
     TPE2,
     TPOS,
     TRCK,
+    USLT,
+    Encoding,
     ID3NoHeaderError,
 )
 from tinytag import TinyTag
+
+from .embed_lyrics import (
+    contains_cjk,
+    convert_lyric_complex,
+    convert_lyric_simple,
+    get_embedded_lyrics,
+)
 
 logger = logging.getLogger(__name__)
 
 class Song:
     
     Date: str = ''
-    Title: str = ''
+    Title: str = '' # Promise of English
+    TitleOG: str = '' # Not english
+    Identify: str = ''
     Artist: str = ''
+    ArtistOG: str = ''
     CoverArtist: str = ''
     Version: str = ''
     Discnumber: str = ''
@@ -40,11 +53,16 @@ class Song:
     @property
     def filename(self) -> str:
     
+        filename = f"{self.Track_Number}. {self.Artist} - {self.Title} "
+        if self.Identify:
+            filename += f"({self.Identify}) "
+
+
         if '&' not in self.CoverArtist:
-            filename = f"{self.TRCK}. {self.Artist} - {self.Title} ({self.CoverArtist}.v{self.Version})"
+            filename += f"({self.CoverArtist}.v{self.Version})"
 
         else:
-            filename = f"{self.TRCK}. {self.Artist} - {self.Title} (Duet.v{self.Version}) ({self.CoverArtist})"
+            filename += f"(Duet.v{self.Version}) ({self.CoverArtist})"
             
         filename = sanitize_filename(filename)
         filename += '.mp3'
@@ -53,18 +71,40 @@ class Song:
 
     @property
     def TIT2(self) -> str:
-        return self.Title
+
+        if self.TitleOG:
+            TIT2 = f"{self.TitleOG} ({self.Title})"
+        else:
+            TIT2 = self.Title
+
+        if self.Identify:
+            TIT2 += f" - {self.Identify}"
+
+        return TIT2
 
     @property
     def TPE1(self) -> str:
+
+        artist = f"{self.ArtistOG} ({self.Artist})" if self.ArtistOG else self.Artist
+
         if '&' not in self.CoverArtist:
-            return  f"{self.CoverArtist} - {self.Artist}"
+            return  f"{self.CoverArtist} - {artist}"
         else:
-            return f"Duet ({self.CoverArtist}) - {self.Artist}"
+            return f"Duet ({self.CoverArtist}) - {artist}"
 
     @property
     def TALB(self) -> str:
-        return f"Disc {self.Discnumber}"
+        Discs = {
+            "1": 'Humble Beginnings',    
+            "2": 'A Small Upgrade',    
+            "3": 'The Gold Standard',    
+            "4": 'First Anniversary',   
+            "5": 'Non-Stop Innovation',
+            "6": 'Second Anniversary',
+            "7": 'Background Running Process',
+            "8": 'Third Anniversary',
+        }
+        return f"{Discs.get(self.Discnumber, "INVALID ALBUM NUMBER").upper()}: Neuro-Sama Karaoke Vol. {self.Discnumber}"
 
     @property
     def TDRC(self) -> str:
@@ -81,7 +121,7 @@ class Song:
             return self.Date 
 
     @property
-    def TRCK(self) -> str:
+    def Track_Number(self) -> str:
 
         """Track number with 3-digit padding"""
 
@@ -92,17 +132,25 @@ class Song:
             return track_num.zfill(3)  # 3-digit padding
         return track_info.zfill(3)
 
+    @property
+    def TRCK(self) -> str:
+        return self.Track
+
     image_type: str|None = None
     image_data: bytes|None = None
 
     FIELDS = (
             "Date", 
             "Title", 
-            "Artist", 
+            "TitleOG",
+            "Identify",
+            "Artist",
+            "ArtistOG", 
             "CoverArtist", 
             "Version", 
             "Discnumber", 
             "Track", 
+            "Comment",
             "Special",
             "xxHash"
             )
@@ -121,8 +169,12 @@ class Song:
         self.load()
 
     def load(self) -> None:
-        data = self._get_song_data()
-        self._load_dict(data)
+        payload = self._get_raw_json()
+        if not payload:
+            return
+
+        data = json.loads(payload)
+        self.load_dict(data)
 
     def save(self) -> None:
         self.set_tags()
@@ -137,25 +189,29 @@ class Song:
         if data["Special"] == "":
             data["Special"] = "0"
       
-        self._load_dict(data)
+        self.load_dict(data)
 
-    def _load_dict(self, d: dict[str, str]):
+    def load_dict(self, d: dict[str, str]):
 
         for field in self.FIELDS:
             if field in d:
                 # print(f"{field} - {d[field]}")
                 setattr(self, field, d[field])
-            else:            
-                print(f"Missing key: {field} - {self.filename}")
+            # else:            
+            #     print(f"Missing key: {field} - {self.filename}")
 
-    def _get_song_data(self) -> dict[str, str]:
+    def get_raw(self, key: str) -> str:
 
-        """Quicker way to get a data dictionary, may not be as robust"""
+        json = self._get_raw_json()
 
-        payload = self._get_raw_json()
-        # "fields" assumes that the keys are constant, true for now but may change in the future.
-        result = {field: self._get_raw_element(payload, field) for field in self.FIELDS}
-        return result
+        pattern = f"\"{key}\":\"(.*?)\""
+
+        match = re.search(pattern, json)
+
+        if match is None:
+            return ""
+        else:
+            return match.group(1)
 
     def _get_raw_json(self) -> str:
 
@@ -216,7 +272,7 @@ class Song:
         tags.add(TRCK(encoding=3, text=[self.TRCK]))
         tags.add(TPE2(encoding=3, text=["QueenPb + vedal987"]))
         tags.add(TDRC(encoding=3, text=[self.TDRC]))
-        tags.add(TPOS(encoding=3, text=[self.TALB.replace("Disc ", "")]))
+        tags.add(TPOS(encoding=3, text=[self.Discnumber]))
 
         tags.add(COMM(encoding=3, lang='ved', desc='', text=[self.build_payload()]))
         tags.add(COMM(encoding=2,lang='eng', desc='',text=[self.COMM_ENG]))
@@ -281,7 +337,7 @@ class Song:
                  f"Invalid Folder: {output_folder}")
             return
 
-        song_data = {field: getattr(self, field) for field in self.FIELDS}
+        song_data = {field: value for field in self.FIELDS if (value := getattr(self, field))}
 
         if not song_data:
             return
@@ -301,12 +357,65 @@ class Song:
         if '/' not in self.Track:
             song_data["Track"] = int(self.Track)
 
+        if song_data["Special"] == 0:
+            del song_data["Special"]
 
         os.makedirs(os.path.dirname(output_location), exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
             hjson.dump(song_data, f)
 
-def get_all_mp3_as_obj(directory: str) -> list[Song]: 
+    def print_tags(self):
+
+        print("filename: ", self.filename)
+        print("TIT2: ", self.TIT2)
+        print("TPE1: ", self.TPE1)
+        print("TALB: ", self.TALB)
+        print("TDRC: ", self.TDRC)
+        print("COMM_ENG: ", self.COMM_ENG)
+        print("TRCK: ", self.TRCK)
+
+    def embed_lyrics(self, lrc_path: Path | str):
+        tags = ID3(self.path)    
+
+        embedded_lyrics = set(map(str.strip, get_embedded_lyrics(self.path)))
+        # 1. Parse the LRC file into (text, timestamp) tuples
+
+        with open(lrc_path, 'r', encoding='utf-8') as f:
+            lyrics = f.read().strip()
+
+        if lyrics in embedded_lyrics:
+            return
+            
+        bilingual = contains_cjk(lyrics)
+        sylt_data = convert_lyric_complex(lyrics=lyrics) if bilingual is True else convert_lyric_simple(lyrics=lyrics)  
+                    
+        language = "jpn" if bilingual else "eng"
+
+        tags.delall("SYLT")
+        tags.delall("USLT")
+
+        # 2. Add the SYLT frame
+        # type=1 (lyrics), format=2 (milliseconds)
+        tags.add(USLT(
+        encoding=Encoding.UTF8,
+        lang=language, 
+        text=lyrics.strip()
+        ))
+
+        tags.add(SYLT(
+            encoding=Encoding.UTF8,
+            lang=language, 
+            format=2, 
+            type=1,
+            text=sylt_data
+        ))
+        
+        # print(sylt_data)
+
+        tags.save()
+        logger.debug(f"Successfully embedded synced lyrics into {self.path}")
+
+def get_all_mp3_as_obj(directory: Path | str) -> list[Song]: 
     """
     Returns as Song objects all mp3 files from a directory and it's sub-directories.
     """
@@ -352,7 +461,7 @@ def get_audio_hash(file: bytes, file_size: int) -> (str | None):
             end_index = file_size - footer_size - 1_000_000 ### about a Mb offset for the audio
 
         else:
-            end_index = int((file_size - footer_size)/2)
+            end_index = int(3*(file_size - footer_size)/4)
 
         start_index = end_index - 987 ### reads a 987 bytes for the hash
 
