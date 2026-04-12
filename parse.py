@@ -7,6 +7,8 @@ from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from remuxer import remux_song
 from thefuzz import process
 
+from neurokaraoke_scraper import get_last_date, get_songs_info
+
 RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
 IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
 LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
@@ -30,7 +32,11 @@ def get_last_track(p: Path):
     ss = get_all_mp3_as_obj(p)
     return max([int(s.Track) for s in ss])
 
-def parse_discord_file(source: str) -> tuple[dict[str, tuple[str, str, bool]], str, str]:
+def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
+
+    if not (source.exists() and source.is_file()):
+        print("Source File doesn't exit!")
+        return
 
     cover_artist_pattern = r"(\w+) Karaoke"
     date_patterns = [r"(\d{4}-\d{2}-\d{2})"]
@@ -64,9 +70,32 @@ def parse_discord_file(source: str) -> tuple[dict[str, tuple[str, str, bool]], s
 
             title, artist = [x.strip() for x in line.split("-", 1)]
 
+            if songs.get(title) is not None:
+                print("ERROR!!! DUPLICATE TITLE!!!")
+
             songs[title] = (title, artist, is_duet) # Assumes unique titles, fails otherwise
 
     return songs, date, cover_artist
+
+def parse_neurokaraoke() -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
+
+    new_songs: dict[str, tuple[str, str, bool]] = {}
+
+    songs_info = get_songs_info(get_last_date(LATEST_ALBUM_PATH) + datetime.timedelta(days=1))
+    for s in songs_info:
+        cover_artists = s["coverArtists"]
+        is_duet = True if (',' in cover_artists or '&' in cover_artists) else False
+        new_songs[s["Title"]] = (s["title"], s["artist"], is_duet)
+
+    if not songs_info:
+        return 
+
+    date = songs_info[0]["streamDate"]
+    date = str(datetime.date.fromisoformat(date))
+
+    cover_artist = songs_info[0]["coverArtists"]
+
+    return new_songs, date, cover_artist
 
 if __name__ == "__main__":
 
@@ -77,9 +106,18 @@ if __name__ == "__main__":
     #DEST_LOC = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
     DEST_LOC = Path(f"C:\\Users\\Nyss\\Downloads\\{today}_Processed")
 
-    listing = f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today}.txt"
+    listing = Path(f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today}.txt")
 
-    songs, date, cover_artist = parse_discord_file(source=listing)
+    parse_result = parse_discord_file(source=listing)
+
+    if parse_result is None:
+        parse_result = parse_neurokaraoke()
+
+    if parse_result is None:
+        print("Failure parsing new data!")
+        exit()
+
+    songs, date, cover_artist = parse_result
 
     raw_files = get_all_mp3_as_obj(RAW_SONGS_PATH)
 
@@ -96,8 +134,6 @@ if __name__ == "__main__":
             
         if result:
             matches.append((result[0], songs[song]))
-
-    print(matches)
 
     for i, match in enumerate(matches):
 
