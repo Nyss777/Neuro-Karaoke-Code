@@ -4,10 +4,10 @@ import re
 from pathlib import Path
 
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
-from remuxer import remux_song
+from neurokaraoke_scraper import get_last_date, get_songs_info
 from thefuzz import process
 
-from neurokaraoke_scraper import get_last_date, get_songs_info
+from remuxer import remux_song
 
 RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
 IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
@@ -164,7 +164,7 @@ if __name__ == "__main__":
             "xxHash": xxhash
         }
         
-        song_obj._load_dict(data)
+        song_obj.load_dict(data)
 
         print(song_obj.filename)
 
