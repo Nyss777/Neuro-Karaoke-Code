@@ -36,8 +36,8 @@ def wilson_interval(p: float, z: float, n: int) -> tuple[float, float]:
 
     return L, U
 
-
 def sample_definition(song: Song, positive: bool)-> bool:    
+
     if song.Discnumber in ("1", "2", "", None, "0"):
         return False
 
@@ -46,13 +46,13 @@ def sample_definition(song: Song, positive: bool)-> bool:
     else:
         return (song.CoverArtist == "Neuro" and song.Version == "3") or ("Evil" in song.CoverArtist and song.Version == "1")
 
-def get_sample(positive: bool) -> list[Song]:
-    songs: list[Song] = []
-    for song in get_all_mp3_as_obj(FULL_ALBUM_PATH / "DISC 8 - Third Anniversary (2025-12-19 - Present)" ):
+def get_sample(songs: list[Song], positive: bool) -> list[Song]:
+    sample: list[Song] = []
+    for song in songs:
         if sample_definition(song, positive):
-            songs.append(song)
+            sample.append(song)
 
-    return songs
+    return sample
 
 def test(
     songs: list[Song], 
@@ -60,7 +60,7 @@ def test(
     positive: bool
     ) -> set[tuple[Song, tuple[Song, int] | None]]:
     
-    return set([(test, match_best(test, scorer, 90, songs)) for test in get_sample(positive)])
+    return set([(test, match_best(test, scorer, 90, songs)) for test in get_sample(songs, positive)])
 
 def match_song(
     query: Song,
@@ -69,7 +69,12 @@ def match_song(
     songs: list[Song]
     ) -> list[tuple[Song, int]] | None:
     
-    choices = (song for song in songs if song.Discnumber != "8" and song.CoverArtist == query.CoverArtist)
+    # song != query -> S . !P = N
+    # song.CoverArtist == query.CoverArtist -> reduces error domain
+    # IDEA: song.Discnumber <= query.Discnumber
+    # IDEA: song.Date <= query.Date
+
+    choices = (song for song in songs if song != query and song.CoverArtist == query.CoverArtist)
 
     matches = process.extractBests( # type: ignore
         query.Title,
@@ -133,9 +138,36 @@ def basic_negative_test(
 
     return matches
 
+def basic_positive_test(
+    songs: list[Song], 
+    scorer: Callable[[Any, Any], int]
+    )-> set[tuple[Song, tuple[Song, int] | None]]:
+    results = test(songs, scorer, positive=True) # type: ignore
+    l_results = len(results)
+
+    c = 0
+
+    matches: set[tuple[Song, tuple[Song, int] | None]] = set()
+
+    for result in results:
+        if not result[1]:
+            c+=1
+            matches.add(result)
+            print(result[0])
+            print(result[1])
+
+    CI = wilson_interval((l_results-c)/l_results, 1.96, l_results)
+    print(f"For {l_results}: {c} unmatched")
+    print(f"{(l_results-c)/l_results*100:.2f}% estimated accurasy")
+    print(f"Confidence Interval: [{CI[0]*100:.2f}%, {CI[1]*100:.2f}%]")
+
+    return matches
+
+
 if __name__ == "__main__":
 
-    songs = [song for song in get_all_mp3_as_obj(FULL_ALBUM_PATH)]
+    # S definition
+    songs = [song for song in get_all_mp3_as_obj(FULL_ALBUM_PATH) if song.Discnumber]
 
     scorers = [
         #fuzz.ratio, 
@@ -148,13 +180,15 @@ if __name__ == "__main__":
 
     # best so far for negatives = token_sort_ratio, fuzz.QRatio, fuzz.UQRatio
 
-    basic_scorer = basic_negative_test(songs, fuzz.ratio) # too rigid
+    # basic_scorer = basic_negative_test(songs, fuzz.ratio) # too rigid
 
     for i, scorer in enumerate(scorers):
         print(scorers_names[i])
         matches = basic_negative_test(songs, scorer) # type: ignore
-        for m in matches.difference(basic_scorer):
-            pass
+        # for m in matches.difference(basic_scorer):
+        #     pass
             # print(m[0])
             # print(m[1])
         print()
+
+# positives test are pretty much useless, they always 100%
