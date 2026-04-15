@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 from typing import Any, Callable, cast
 
@@ -23,6 +24,18 @@ FULL_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive")
 # QRatio	Quick matching	Fast approximation of ratio. Use when speed matters more than precision.
 # UQRatio	Quick Unicode matching	Unicode-aware version of QRatio.
 # UWRatio
+
+def wilson_interval(p: float, z: float, n: int) -> tuple[float, float]:
+    term_1 = p + z**2/(2*n)
+    term_2 = z*math.sqrt( p*(1-p)/n + z**2 / (4*n**2))
+    divisor = 1 + z**2/n
+
+    # L = (p̂ + z²/(2n) - z√[p̂(1-p̂)/n + z²/(4n²)]) / (1 + z²/n)
+    L = (term_1 - term_2)/divisor
+    U = (term_1 + term_2)/divisor
+
+    return L, U
+
 
 def sample_definition(song: Song, positive: bool)-> bool:    
     if song.Discnumber in ("1", "2", "", None, "0"):
@@ -113,7 +126,10 @@ def basic_negative_test(
             # print(result[0])
             # print(result[1])
 
-    print(f"For {l_results}: {c} matches, {(l_results-c)/l_results*100:.2f}% estimated accurary")
+    CI = wilson_interval((l_results-c)/l_results, 1.96, l_results)
+    print(f"For {l_results}: {c} matches")
+    print(f"{(l_results-c)/l_results*100:.2f}% estimated accurasy")
+    print(f"Confidence Interval: [{CI[0]*100:.2f}%, {CI[1]*100:.2f}%]")
 
     return matches
 
@@ -125,11 +141,17 @@ if __name__ == "__main__":
         #fuzz.ratio, 
         fuzz.partial_ratio, fuzz.token_sort_ratio, fuzz.token_set_ratio, fuzz.QRatio, fuzz.UQRatio, fuzz.UWRatio]
 
+    scorers_names = [
+        #fuzz.ratio, 
+        "partial_ratio", "token_sort_ratio", "token_set_ratio", "QRatio", "UQRatio", "UWRatio"]
+
+
     # best so far for negatives = token_sort_ratio, fuzz.QRatio, fuzz.UQRatio
 
     basic_scorer = basic_negative_test(songs, fuzz.ratio) # too rigid
 
-    for scorer in scorers:
+    for i, scorer in enumerate(scorers):
+        print(scorers_names[i])
         matches = basic_negative_test(songs, scorer) # type: ignore
         for m in matches.difference(basic_scorer):
             pass
