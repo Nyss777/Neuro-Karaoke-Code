@@ -6,9 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "hjson>=3.1.0",
-    "metadata_utils",
+    "metadata-utils",
     "mutagen>=1.47.0",
 ]
 
 [tool.uv.sources]
-metadata-utils = { workspace = true }
+metadata-utils = { path = "../Metadata_Utils", editable = true }

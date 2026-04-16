@@ -38,7 +38,7 @@ def setup_logger():
 
     script_dir = Path(__file__).parent.absolute()
 
-    log_path = script_dir / "logs" /f'sync_[{date.today()}].log'
+    log_path = script_dir / ".." /"logs" /f'sync_[{date.today()}].log'
 
     logger.setLevel(logging.DEBUG)
 
@@ -96,11 +96,11 @@ if __name__ == "__main__":
         hjson_data = lookup_table.get(xxhash_value)
         
         if not hjson_data:
-            logger.warning(f"No hjson data for {song.filename}")
+            logger.warning(f"No hjson data for {song.filename} - {xxhash_value}")
             continue
 
         copy = False
-        for key, value in hjson_data.items():
+        for key, value in hjson_data.items(): # this is incomplete since hjsons are a subset of all fields
             if getattr(song, key, "") != (value if isinstance(value, str) else str(value)):
                 copy = True
                 logger.debug(f"They differ in {key}; {getattr(song, key, "")} vs {hjson_data[key]}")
