@@ -2,16 +2,19 @@ import datetime
 import os
 import re
 from pathlib import Path
+from typing import cast
 
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from neurokaraoke_scraper import get_last_date, get_songs_info
-from thefuzz import process
+from thefuzz import fuzz, process
 
+from analyze_version import match_best
 from remuxer import remux_song
 
-RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\01 04 26 neuro karaoke"
+RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\im so sorry for being late please dont hurt me 15 04 26"
 IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
 LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
+ARCHIVE_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive")
 NEW_HJSON_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync\DISC 8 - Third Anniversary (2025-12-19 - Present)"
 
 def get_previous_wednesday(dt: datetime.date):
@@ -121,17 +124,22 @@ if __name__ == "__main__":
 
     raw_files = get_all_mp3_as_obj(RAW_SONGS_PATH)
 
+    archive = get_all_mp3_as_obj(ARCHIVE_PATH)
+
     matches: list[tuple[Song, tuple[str, str, bool]]] = []
 
     for song in songs:
 
-        result = process.extractOne(  # extractOne returns (match, confidence_score)
+        # extractOne returns (match, confidence_score)
+        result = process.extractOne( # type: ignore
             song, # Song title
             raw_files, 
-            processor=lambda s: s.path.stem
+            processor=lambda s: s.path.stem if isinstance(s, Song) else s # type: ignore
             )
             # print(f"{raw.stem} -> {result[0]} with {result[1]}% confidence")
             
+        result = cast(tuple[Song, int] | None, result)
+
         if result:
             matches.append((result[0], songs[song]))
 
@@ -151,20 +159,63 @@ if __name__ == "__main__":
             print(f"Error generating hash for {match}")
             continue
 
-        data: dict[str, str] = {
-            "Date": date,
-            "Title": match[1][0],
-            "Artist": match[1][1],
-            "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
-            "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
-            "Discnumber": "8",
-            "Track": str(get_last_track(LATEST_ALBUM_PATH) + i + 1),
-            "Comment": "None",
-            "Special": "0",
-            "xxHash": xxhash
-        }
+        song_obj.Date = date
+        song_obj.Title = match[1][0]
+        song_obj.Artist = match[1][1]
+        song_obj.CoverArtist = "Neuro & Evil" if match[1][2] else cover_artist
+
+        existing = match_best(
+            query=song_obj, 
+            scorer=fuzz.UWRatio, # type: ignore
+            score_cutoff=90,
+            songs=archive
+            )
+
+        if existing:
+            
+            previous = existing[0]
+
+            print(f"MATCHED: {song_obj.Artist} - {song_obj.Title}")
+            print(f"WITH: {previous.filename}")
+
+            song_obj.Title = previous.Title
+            song_obj.TitleOG = previous.TitleOG
+            song_obj.Identify = previous.Identify
+            song_obj.Artist = previous.Artist
+            song_obj.ArtistOG = previous.ArtistOG
+
+            if song_obj.CoverArtist == "Neuro" and previous.Discnumber in ("1", "2"):
+                song_obj.Version = "3"
+            elif song_obj.CoverArtist == "Neuro":
+                if "." not in previous.Version: # previous.Version = 3
+                    song_obj.Version = "3.2"
+                else:
+                    major_v, minor_v = previous.Version.split(".")
+                    song_obj.Version = major_v + "." + str(int(minor_v) + 1) # 3.(n + 1)
+            else:
+                song_obj.Version = str(int(previous.Version) + 1)
+
+            song_obj.Discnumber = "8"
+            song_obj.Track = str(get_last_track(LATEST_ALBUM_PATH) + i + 1)
+            song_obj.Comment = "None"
+            song_obj.Special = "0"
+            song_obj.xxHash = xxhash
+
+        else:
+            data: dict[str, str] = {
+                "Date": date,
+                "Title": match[1][0],
+                "Artist": match[1][1],
+                "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
+                "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
+                "Discnumber": "8",
+                "Track": str(get_last_track(LATEST_ALBUM_PATH) + i + 1),
+                "Comment": "None",
+                "Special": "0",
+                "xxHash": xxhash
+            }
         
-        song_obj.load_dict(data)
+            song_obj.load_dict(data)
 
         print(song_obj.filename)
 
