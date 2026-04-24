@@ -7,7 +7,7 @@ wheels/
 *.egg-info
 .pytest_cache
 
-# Notes
+# Config files
 *.txt
 
 # Virtual environments

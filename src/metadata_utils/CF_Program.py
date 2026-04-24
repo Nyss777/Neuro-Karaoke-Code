@@ -34,6 +34,22 @@ from .embed_lyrics import (
 
 logger = logging.getLogger(__name__)
 
+with open( Path(__file__).parent.parent.parent / "config.txt" ) as f:
+    ALBUMS_COVER_PATH = Path(f.read())
+
+ALBUM_COVERS = {
+    "1": 'Disc 1 cover art by paccha.jpg',  
+    "2": 'Disc 2 cover art by kapxapius.jpg',  
+    "3": 'Disc 3 cover art by paccha.jpg',     
+    "4": 'Disc 4 cover art by ppchan.jpg',   
+    "5": 'Disc 5 cover art by paccha.jpg',     
+    "6": 'Disc 6 cover art by koilccc.jpg',
+    "7": 'Disc 7 cover art by nostyx.jpg',
+    "8": 'Disc 8 cover art by lukuwo.jpg',
+    # "66": 'Disc 66 cover art by tanhuluu.jpg',
+    "天天天国地獄国": 'Tententengoku Jigokukoku cover art by copper1ion.jpg',
+}
+
 class Song:
     
     Date: str = ''
@@ -49,6 +65,17 @@ class Song:
     Comment: str = ''
     Special: str = ''
     xxHash: str = ''
+
+    def __repr__(self) -> str:
+        return self.filename
+
+    def __eq__(self, other: object, /) -> bool:
+        if not isinstance(other, Song):
+            return False
+        return self.filename + self.xxHash == other.filename + self.xxHash
+
+    def __hash__(self) -> int:
+        return hash(self.filename + self.xxHash)
 
     @property
     def filename(self) -> str:
@@ -136,9 +163,6 @@ class Song:
     def TRCK(self) -> str:
         return self.Track
 
-    image_type: str|None = None
-    image_data: bytes|None = None
-
     FIELDS = (
             "Date", 
             "Title", 
@@ -183,12 +207,9 @@ class Song:
     def load_hjson(self, hjson_data: dict[str, (str | int | float)]) -> None:
 
         data = {
-        field: str(hjson_data.get(field, "")) for field in self.FIELDS
+        field: str(hjson_data.get(field)) for field in self.FIELDS
         }
 
-        if data["Special"] == "":
-            data["Special"] = "0"
-      
         self.load_dict(data)
 
     def load_dict(self, d: dict[str, str]):
@@ -196,7 +217,14 @@ class Song:
         for field in self.FIELDS:
             if field in d:
                 # print(f"{field} - {d[field]}")
+                if d[field] == "None":
+                    continue
+
                 setattr(self, field, d[field])
+
+        if self.Special == "":
+            self.Special = "0"
+
             # else:            
             #     print(f"Missing key: {field} - {self.filename}")
 
@@ -278,22 +306,48 @@ class Song:
         tags.add(COMM(encoding=2,lang='eng', desc='',text=[self.COMM_ENG]))
         tags.add(COMM(encoding=2,lang='eng', desc='ID3v1 Comment',text=[self.COMM_ENG]))
         
-        if self.image_data and self.image_type and (self.image_type.lower() in ("jpeg", "png")):
+        tags.save(self.path)
+
+    def set_image(self, image_path: Path):
+
+        if not (image_path.exists() and image_path.is_file()):
+            print("Please select a valid image!")
+            return
+
+        image_data = image_path.read_bytes()
+
+        try:
+            tags = ID3(self.path)
+        except ID3NoHeaderError:
+            tags = ID3()
+
+        image_type = image_path.suffix.strip(".")
+        if image_type.lower() == "jpg":
+            image_type = "jpeg"
+
+        if image_data and (image_type.lower() in ("jpeg", "png")):
 
             tags.delall('APIC') 
                 
             tags.add(
                 APIC(
                     encoding=3,       
-                    mime=f'image/{self.image_type.lower()}', 
+                    mime=f'image/{image_type.lower()}', 
                     type=3, 
                     desc='Cover (Front)', 
-                    data=self.image_data
+                    data=image_data
                 )
             )
             logger.debug("Image added to APIC frame")
 
-        tags.save(self.path)
+            tags.save()
+
+    def set_album_image(self):
+
+        cover_image = title_match if (title_match := ALBUM_COVERS.get(self.TitleOG)) else ALBUM_COVERS.get(self.Discnumber, "") 
+
+        self.set_image(ALBUMS_COVER_PATH / cover_image)
+
 
     def rename(self) -> None:
         new_path = self.path.with_name(self.filename)
@@ -340,6 +394,7 @@ class Song:
         song_data = {field: value for field in self.FIELDS if (value := getattr(self, field))}
 
         if not song_data:
+            print("No data found")
             return
 
         filename = self.filename.replace(".mp3", ".hjson")
@@ -360,9 +415,10 @@ class Song:
         if song_data["Special"] == 0:
             del song_data["Special"]
 
-        os.makedirs(os.path.dirname(output_location), exist_ok=True)
+        os.makedirs(output_location.parent, exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
             hjson.dump(song_data, f)
+            print(f"hjons made in {output_location}")
 
     def print_tags(self):
 
@@ -452,10 +508,7 @@ def get_audio_hash(file: bytes, file_size: int) -> (str | None):
         footer_size = 0
          # Seek 128 bytes from the end (2)
         if file[-128:-128+3] == b'TAG':
-            # print("header found!")
             footer_size = 128
-        # else:
-        #     print(f"{file[-128:-128+3]} vs {b'TAG'}")
 
         if (file_size - footer_size - 1_000_000) > 987: # check to prevent negative indexes
             end_index = file_size - footer_size - 1_000_000 ### about a Mb offset for the audio
