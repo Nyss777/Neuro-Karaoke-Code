@@ -5,32 +5,13 @@ from typing import Any, Callable, cast
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from thefuzz import fuzz, process
 
-# given test and songs
-
-# for song in songs
-# match title and artist
-# make match list
-
-# find latest in match list
-# return positive
-
 FULL_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive")
-
-# Scorer and Cutoffs
-# ratio	General-purpose matching	Simple character-level similarity (0-100). Good baseline.
-# partial_ratio	Substring matching	Finds best matching substring. Great if one string is much shorter.
-# token_sort_ratio	Word order differences	Sorts tokens alphabetically, then compares. Handles reordered words.
-# token_set_ratio	Duplicated/missing words	Handles both reordered words AND words that appear in one string but not the other.
-# QRatio	Quick matching	Fast approximation of ratio. Use when speed matters more than precision.
-# UQRatio	Quick Unicode matching	Unicode-aware version of QRatio.
-# UWRatio
 
 def wilson_interval(p: float, z: float, n: int) -> tuple[float, float]:
     term_1 = p + z**2/(2*n)
     term_2 = z*math.sqrt( p*(1-p)/n + z**2 / (4*n**2))
     divisor = 1 + z**2/n
 
-    # L = (p̂ + z²/(2n) - z√[p̂(1-p̂)/n + z²/(4n²)]) / (1 + z²/n)
     L = (term_1 - term_2)/divisor
     U = (term_1 + term_2)/divisor
 
@@ -92,8 +73,7 @@ def match_song(
     
     # song != query -> S . !P = N
     # song.CoverArtist == query.CoverArtist -> reduces error domain
-    # IDEA: song.Discnumber <= query.Discnumber
-    # IDEA: song.Date <= query.Date
+    # song.Date <= query.Date
 
     choices = (
         song for song in songs 
@@ -173,13 +153,14 @@ def basic_negative_test(
 def basic_positive_test(
     songs: list[Song], 
     scorer: Callable[[Any, Any], int]
-    )-> set[tuple[Song, tuple[Song, int] | None]]:
-    results = test(songs, scorer, positive=True) # type: ignore
+    )-> set[tuple[Song, tuple[Song, int, int] | None]]:
+
+    results = test(songs, scorer, positive=True)
     l_results = len(results)
 
     c = 0
 
-    matches: set[tuple[Song, tuple[Song, int] | None]] = set()
+    matches: set[tuple[Song, tuple[Song, int, int] | None]] = set()
 
     for result in results:
         if not result[1]:
@@ -201,7 +182,7 @@ if __name__ == "__main__":
     # S definition
     songs = [song for song in get_all_mp3_as_obj(FULL_ALBUM_PATH) if song.Discnumber not in ("1", "2")]
 
-    scorers = [
+    scorers: list[Callable[[Any, Any], int]] = [
         fuzz.ratio, 
         fuzz.partial_ratio, 
         fuzz.token_sort_ratio, 
@@ -221,11 +202,7 @@ if __name__ == "__main__":
         "UWRatio"
         ]
 
-
-    # best so far for negatives = fuzz.UQRatio
-    # too rigid
-
-    basic_scorer = basic_negative_test(songs, fuzz.token_sort_ratio)
+    basic_scorer = basic_negative_test(songs, fuzz.token_sort_ratio) # type: ignore
 
     for i, scorer in enumerate(scorers):
         print(scorers_names[i])

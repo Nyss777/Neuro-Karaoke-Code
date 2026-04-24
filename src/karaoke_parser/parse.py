@@ -1,21 +1,23 @@
 import datetime
+import json
 import os
 import re
 from pathlib import Path
 from typing import cast
 
+from analyze_version import match_best
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
+from metadata_utils.remuxer import remux_song
 from neurokaraoke_scraper import get_last_date, get_songs_info
 from thefuzz import fuzz, process
 
-from analyze_version import match_best
-from remuxer import remux_song
+with open(Path(__file__).parent.parent.parent / "config.json") as f:
+    CONFIGS = json.load(f)
 
-RAW_SONGS_PATH = r"C:\Users\Nyss\Downloads\im so sorry for being late please dont hurt me 15 04 26"
-IMAGE_FILE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive\Extra Content\Resized Cover Art\Disc 8 cover art by lukuwo.jpg'
-LATEST_ALBUM_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
-ARCHIVE_PATH = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive")
-NEW_HJSON_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync\DISC 8 - Third Anniversary (2025-12-19 - Present)"
+RAW_SONGS_PATH = CONFIGS["RAW_SONGS_PATH"]
+LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
+ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
+NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
 
 def get_previous_wednesday(dt: datetime.date):
         
@@ -103,13 +105,9 @@ def parse_neurokaraoke() -> tuple[dict[str, tuple[str, str, bool]], str, str] | 
 if __name__ == "__main__":
 
     today = datetime.date.today()
-    with open(IMAGE_FILE_PATH, 'rb') as albumart:
-            image_data = albumart.read()
 
-    #DEST_LOC = Path(r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive\DISC 8 - Third Anniversary (2025-12-19 - Present)")
-    DEST_LOC = Path(f"C:\\Users\\Nyss\\Downloads\\{today}_Processed")
-
-    listing = Path(f"C:\\Users\\Nyss\\Documents\\Code\\Python\\Neuro_karaoke\\Autoparsing\\{today}.txt")
+    DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{today}_Processed"
+    listing = Path(CONFIGS["LISTING_FOLDER"]) / f"{today}.txt"
 
     parse_result = parse_discord_file(source=listing)
 
@@ -220,6 +218,8 @@ if __name__ == "__main__":
         print(song_obj.filename)
 
         song_obj.save()
+
+        song_obj.set_album_image()
 
         song_obj.make_hjson(NEW_HJSON_PATH)
 
