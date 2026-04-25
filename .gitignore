@@ -7,7 +7,7 @@ env/
 __pycache__/
 *.py[cod]
 
-# Ignore log files (like the sync [date].log you created earlier!)
+# Ignore log files
 logs/
 *.log
 
@@ -17,3 +17,6 @@ Thumbs.db
 
 # Ignore sensitive environment variables
 .env
+
+# ignore config
+*.json

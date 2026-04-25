@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -9,9 +10,15 @@ from typing import cast
 import hjson
 from metadata_utils.CF_Program import get_all_mp3_as_obj
 
-LIVE_ARCHIVE_PATH = r'C:\Users\Nyss\Downloads\Neuro Karaoke Archive'
-LOCAL_REPO_LOCATION_PATH = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Metadata Sync"
-BACKUP_PATH = r"C:\Users\Nyss\Downloads"
+logger = logging.getLogger(__name__)
+
+with open(Path(__file__).parent.parent.parent / "config.json") as f:
+    CONFIGS = json.load(f)
+
+ARCHIVE_PATH = CONFIGS["ARCHIVE_PATH"]
+ARCHIVE_METADATA = CONFIGS["ARCHIVE_METADATA"]
+BACKUP_PATH = Path(CONFIGS["BACKUP_PATH"])
+LOG_DIR = Path(CONFIGS["LOG_DIR"])
 
 
 def get_all_hjson(directory: str) -> list[str]: 
@@ -36,9 +43,7 @@ def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
 def setup_logger():
     logger = logging.getLogger()
 
-    script_dir = Path(__file__).parent.absolute()
-
-    log_path = script_dir / ".." /"logs" /f'sync_[{date.today()}].log'
+    log_path = LOG_DIR / f'sync_[{date.today()}].log'
 
     logger.setLevel(logging.DEBUG)
 
@@ -54,19 +59,17 @@ def setup_logger():
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
 
-logger = logging.getLogger(__name__)
-
 if __name__ == "__main__":
 
     setup_logger()
 
     logger.info('-'*20 + "Program Start" + '-'*20)
 
-    os.chdir(LOCAL_REPO_LOCATION_PATH)
+    os.chdir(ARCHIVE_METADATA)
 
     subprocess.run(["git", "switch", "main"])
 
-    changed_files = get_all_hjson(LOCAL_REPO_LOCATION_PATH)
+    changed_files = get_all_hjson(ARCHIVE_METADATA)
 
     logger.info(f"Number of changes: {len(changed_files)}")
 
@@ -75,7 +78,7 @@ if __name__ == "__main__":
                     if file_path.endswith('.hjson')
                     and (metadata := get_metadata(file_path))}
 
-    song_files = get_all_mp3_as_obj(LIVE_ARCHIVE_PATH)
+    song_files = get_all_mp3_as_obj(ARCHIVE_PATH)
 
     song_files_length = len(song_files)
     if song_files_length > 0:
@@ -100,7 +103,7 @@ if __name__ == "__main__":
             continue
 
         copy = False
-        for key, value in hjson_data.items(): # this is incomplete since hjsons are a subset of all fields
+        for key, value in hjson_data.items():
             if getattr(song, key, "") != (value if isinstance(value, str) else str(value)):
                 copy = True
                 logger.debug(f"They differ in {key}; {getattr(song, key, "")} vs {hjson_data[key]}")
@@ -110,7 +113,7 @@ if __name__ == "__main__":
             change = True
             filename = song.path.name
             parent = song.path.parent.name
-            backup_song_path = Path(BACKUP_PATH) / f"Backup [{date.today()}]" / parent / filename
+            backup_song_path = BACKUP_PATH / f"Backup [{date.today()}]" / parent / filename
 
             os.makedirs(os.path.dirname(backup_song_path), exist_ok=True) ## side-effect
             shutil.copy2(src=song.path, dst=backup_song_path) ## side-effect
@@ -122,7 +125,7 @@ if __name__ == "__main__":
     if change:
 
         subprocess.run(["rclone", "sync",
-                        f"{LIVE_ARCHIVE_PATH}", 
+                        f"{ARCHIVE_PATH}", 
                         "Nyss_ecomp:\\Neuro Karaoke Archive V3",
                         "--exclude", ".stfolder/**",
                         "--exclude", ".stversions/**",
@@ -136,7 +139,7 @@ if __name__ == "__main__":
 
         if comfirmation == 'commit':
             subprocess.run(["rclone", "sync","-P",
-                            f"{LIVE_ARCHIVE_PATH}", 
+                            f"{ARCHIVE_PATH}", 
                             "Nyss_ecomp:\\Neuro Karaoke Archive V3",
                             "--exclude", ".stfolder/**",
                             "--exclude", ".stversions/**",
