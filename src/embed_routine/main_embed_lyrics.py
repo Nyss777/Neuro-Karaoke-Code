@@ -17,7 +17,7 @@ def get_all_lrc(p: Path | str) -> list[Path]:
     return [f for f in p.rglob('*.lrc') if f.is_file()]
 
 HEADERS = {
-    "User-Agent": "NeuroKaraokeArchive/1.0 (Contact: nycolasstrauss@ecomp.ufsm.br, Discord: nyss_7)",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
     "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.5",
     "Referer": "https://neurokaraoke.com/",
