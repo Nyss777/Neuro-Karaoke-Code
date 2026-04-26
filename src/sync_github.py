@@ -19,6 +19,8 @@ ARCHIVE_PATH = CONFIGS["ARCHIVE_PATH"]
 ARCHIVE_METADATA = CONFIGS["ARCHIVE_METADATA"]
 BACKUP_PATH = Path(CONFIGS["BACKUP_PATH"])
 LOG_DIR = Path(CONFIGS["LOG_DIR"])
+REMOTE_NAME = CONFIGS["REMOTE_NAME"]
+REMOTE_ARCHIVE_FOLDER = CONFIGS["REMOTE_ARCHIVE_FOLDER"]
 
 
 def get_all_hjson(directory: str) -> list[str]: 
@@ -126,7 +128,7 @@ if __name__ == "__main__":
 
         subprocess.run(["rclone", "sync",
                         f"{ARCHIVE_PATH}", 
-                        "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+                        f"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
                         "--exclude", ".stfolder/**",
                         "--exclude", ".stversions/**",
                         "--dry-run",
@@ -140,7 +142,7 @@ if __name__ == "__main__":
         if comfirmation == 'commit':
             subprocess.run(["rclone", "sync","-P",
                             f"{ARCHIVE_PATH}", 
-                            "Nyss_ecomp:\\Neuro Karaoke Archive V3",
+                            F"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
                             "--exclude", ".stfolder/**",
                             "--exclude", ".stversions/**",
                             "--fast-list",
