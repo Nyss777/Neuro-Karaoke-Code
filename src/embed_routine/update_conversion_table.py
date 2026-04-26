@@ -30,7 +30,7 @@ def get_remote_audio_segment_hash(abs_path: str, session: Session) -> str | None
 
     return get_audio_hash(response.content, file_size)
 
-def update_conversion_table(session: Session, WORKING_DIR: Path):
+def update_conversion_table(WORKING_DIR: Path, session: Session):
 
     with open(WORKING_DIR / "server_conversion.csv", 'r+', encoding='utf-8', newline='') as f:
 
@@ -39,12 +39,12 @@ def update_conversion_table(session: Session, WORKING_DIR: Path):
 
         conversion_set: set[str] = {row['UUID'] for row in reader}
 
-        with open(WORKING_DIR / "full_data.jsonl", 'r', encoding='utf-8') as h:
+        with open(WORKING_DIR / "uuid.jsonl", 'r', encoding='utf-8') as h:
 
             for line in h:
                 song = json.loads(line)
                 
-                if song['id'] not in conversion_set:
+                if "(Temporary Stream Audio)" not in song["title"] and song['id'] not in conversion_set:
 
                     xxhash = get_remote_audio_segment_hash(song["absolutePath"], session=session)
 

@@ -11,7 +11,9 @@ import requests
 # Lyrics are out of order 
 # Lyrics are separated by new lines when JP/EN
 
-def write_lyrics(lyrics: list[tuple[str, str]], timestamp_pattern: re.Pattern[str], xxhash: str, WORKING_DIR: Path):
+timestamp_pattern = re.compile(r"\d{2}:\d{2}:\d{2}\.\d{7}")
+
+def write_lyrics(lyrics: list[tuple[str, str]], xxhash: str, WORKING_DIR: Path):
 
     with open(WORKING_DIR / "Lyrics" / f'{xxhash}.lrc', 'w', encoding='utf-8') as l_h:
         for lyrics_line in lyrics:
@@ -63,15 +65,19 @@ def fetch_lyrics(song_id: str, session: requests.Session) -> list[dict[str, str]
     else:
         return lyrics_response.json()
 
-def get_lyrics(session: requests.Session, WORKING_DIR: Path) -> None:
+def get_lyrics(WORKING_DIR: Path, session: requests.Session) -> None:
+    
+    with open(WORKING_DIR / "server_conversion.csv", encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        conversion_table: dict[str, str] = {row['UUID']: row['xxHash'] for row in reader}
     
     with open(WORKING_DIR / "server_conversion.csv", 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
-        conversion_table: dict[str, str] = {row['UUID']: row['xxHash'] for row in reader}
-            
-    with open(WORKING_DIR / "full_data.jsonl", 'r', encoding='utf-8') as h:
+        compatibility_table: dict[str, str] = {row['UUID']: row['Compatibility xxHash'] for row in reader}
 
-        timestamp_pattern = re.compile(r"\d{2}:\d{2}:\d{2}\.\d{7}")
+    conversion_table.update(compatibility_table)
+
+    with open(WORKING_DIR / "uuid.jsonl", 'r', encoding='utf-8') as h:
 
         for line in h:
             song = json.loads(line)
@@ -87,4 +93,4 @@ def get_lyrics(session: requests.Session, WORKING_DIR: Path) -> None:
 
             sorted_lyrics = sorted([(item['time'], item['text']) for item in raw_lyrics])
 
-            write_lyrics(sorted_lyrics, timestamp_pattern, xxhash, WORKING_DIR)
+            write_lyrics(sorted_lyrics, xxhash, WORKING_DIR)

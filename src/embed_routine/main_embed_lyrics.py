@@ -1,13 +1,19 @@
+import json
 from pathlib import Path
 
 import requests
 from get_lyrics import get_lyrics
 from get_uuid import get_uuids
-
-# from get_data_by_uuid import get_full_data
 from metadata_utils.CF_Program import get_all_mp3_as_obj
 from update_conversion_table import update_conversion_table
 
+WORKING_DIR = Path(__file__).parent.parent.parent
+
+with open(WORKING_DIR / "config.json") as f:
+    CONFIGS = json.load(f)
+
+LYRICS_FOLDER = WORKING_DIR / "Lyrics"
+ARCHIVE_PATH = CONFIGS["ARCHIVE_PATH"]
 
 def get_all_lrc(p: Path | str) -> list[Path]: 
     """
@@ -17,7 +23,7 @@ def get_all_lrc(p: Path | str) -> list[Path]:
     return [f for f in p.rglob('*.lrc') if f.is_file()]
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) Gecko/20100101 Firefox/132.0",
+    "User-Agent": CONFIGS["USER_AGENT"],
     "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.5",
     "Referer": "https://neurokaraoke.com/",
@@ -34,23 +40,20 @@ HEADERS = {
 }
 
 if __name__ == "__main__":
-    WORKING_DIR = Path(r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Embed Routine")
-    LYRICS_FOLDER = r"C:\Users\Nyss\Documents\Code\Python\Neuro_karaoke\Embed Routine\Lyrics"
-    SONGS_FOLDER = r"C:\Users\Nyss\Downloads\Neuro Karaoke Archive"
 
     with requests.Session() as session:
         session.headers.update(HEADERS)
 
-        get_uuids(session)
+        get_uuids(WORKING_DIR, session)
 
-        update_conversion_table(session, WORKING_DIR)
+        update_conversion_table(WORKING_DIR, session)
 
-        get_lyrics(session, WORKING_DIR)
+        get_lyrics(WORKING_DIR, session)
 
     lyrics_files = get_all_lrc(LYRICS_FOLDER)
     lenght = len(lyrics_files)
 
-    song_files = {song.xxHash : song for song in get_all_mp3_as_obj(SONGS_FOLDER)}
+    song_files = {song.xxHash : song for song in get_all_mp3_as_obj(ARCHIVE_PATH)}
 
     fails: list[str] = []
 
@@ -63,6 +66,6 @@ if __name__ == "__main__":
         print(f"{i+1}/{lenght}", end='\r', flush=True)
         song.embed_lyrics(lyric)
 
-    with open("lookup_failures.txt", 'w', encoding='utf-8') as ff:
+    with open(WORKING_DIR / "lookup_failures.txt", 'w', encoding='utf-8') as ff:
         for f in fails:
             ff.write(f + '\n')
