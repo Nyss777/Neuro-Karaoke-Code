@@ -90,7 +90,7 @@ def parse_neurokaraoke() -> tuple[dict[str, tuple[str, str, bool]], str, str] | 
     for s in songs_info:
         cover_artists = s["coverArtists"]
         is_duet = True if (',' in cover_artists or '&' in cover_artists) else False
-        new_songs[s["Title"]] = (s["title"], s["artist"], is_duet)
+        new_songs[s["Title"]] = (s["title"], s["originalArtists"], is_duet)
 
     if not songs_info:
         return 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
 
     archive = get_all_mp3_as_obj(ARCHIVE_PATH)
 
-    matches: list[tuple[Song, tuple[str, str, bool]]] = []
+    matches: list[tuple[tuple[Song, int], tuple[str, str, bool]]] = []
 
     for song in songs:
 
@@ -139,11 +139,14 @@ if __name__ == "__main__":
         result = cast(tuple[Song, int] | None, result)
 
         if result:
-            matches.append((result[0], songs[song]))
+            matches.append((result, songs[song]))
+
+    while len(matches) > len(raw_files): # handles re-runs of old songs
+        matches.remove(min(matches, key=lambda x: x[0][1]))
 
     for i, match in enumerate(matches):
 
-        song_obj = match[0]
+        song_obj = match[0][0]
 
         os.makedirs(DEST_LOC, exist_ok=True)
 
