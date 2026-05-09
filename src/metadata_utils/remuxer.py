@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -7,6 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 def remux_song(file_path: Path, new_path: Path) -> None:
+
+    if file_path == new_path:
+        os.rename(file_path, "temp")
 
     if sys.platform == "win32":
         # Windows-specific flag to hide the console
@@ -39,3 +43,5 @@ def remux_song(file_path: Path, new_path: Path) -> None:
 
     else:
         logger.debug("Remuxing process run succesufully")
+        if file_path == new_path:
+            os.remove("temp")
