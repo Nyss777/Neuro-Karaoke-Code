@@ -80,6 +80,9 @@ class Song:
     @property
     def filename(self) -> str:
     
+        if not (self.Artist and self.Title):
+            return self.path.name
+
         filename = f"{self.Track_Number}. {self.Artist} - {self.Title} "
         if self.Identify:
             filename += f"({self.Identify}) "
