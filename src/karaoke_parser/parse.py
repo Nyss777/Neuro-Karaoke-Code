@@ -88,19 +88,19 @@ def parse_neurokaraoke() -> tuple[dict[str, tuple[str, str, bool]], str, str] | 
 
     songs_info = get_songs_info(get_last_date(LATEST_ALBUM_PATH) + datetime.timedelta(days=1))
     for s in songs_info:
-        cover_artists = s["coverArtists"]
+        cover_artists = " & ".join(s["coverArtists"])
         is_duet = True if (',' in cover_artists or '&' in cover_artists) else False
-        new_songs[s["Title"]] = (s["title"], s["originalArtists"], is_duet)
+        new_songs[s["title"]] = (s["title"], ", ".join(s["originalArtists"]), is_duet)
 
     if not songs_info:
         return 
 
     date = songs_info[0]["streamDate"]
-    date = str(datetime.date.fromisoformat(date))
+    date = str(datetime.datetime.fromisoformat(date).date())
 
-    cover_artist = songs_info[0]["coverArtists"]
+    cover_artist = " & ".join(songs_info[0]["coverArtists"])
 
-    return new_songs, date, cover_artist
+    return new_songs, date, cover_artist # returning one CA is kind of dumb by whatever, should be on a song basis
 
 if __name__ == "__main__":
 
