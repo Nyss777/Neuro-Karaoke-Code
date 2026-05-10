@@ -186,14 +186,14 @@ class Song:
             "xxHash"
             )
 
-    def __init__(self, path: Path | str, allow_imcompatible : bool = False):
+    def __init__(self, path: Path | str, allow_incompatible : bool = False):
         self.path = Path(path)
 
         if not self.path.exists() or self.path.is_dir():
             raise ValueError("The specified path is invalid!",
                             f"Invalid path: {self.path}")
 
-        if allow_imcompatible and self.path.suffix != ".mp3":
+        if not allow_incompatible and self.path.suffix != ".mp3":
             raise ValueError("Incompatible format, only compatible with mp3s!",
                             f"Invalid path: {self.path}")
 
