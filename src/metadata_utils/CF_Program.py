@@ -186,10 +186,10 @@ class Song:
             "xxHash"
             )
 
-    def __init__(self, path: Path | str, allow_incompatible : bool = False):
+    def __init__(self, path: Path | str, allow_incompatible : bool = False, allow_fake_path: bool = False):
         self.path = Path(path)
 
-        if not self.path.exists() or self.path.is_dir():
+        if not allow_fake_path and (not self.path.exists() or self.path.is_dir()):
             raise ValueError("The specified path is invalid!",
                             f"Invalid path: {self.path}")
 
