@@ -225,6 +225,7 @@ class Song:
             if field in d:
                 # print(f"{field} - {d[field]}")
                 if d[field] == "None":
+                    setattr(self, field, "") # removes bad fields
                     continue
 
                 setattr(self, field, d[field])
@@ -428,6 +429,9 @@ class Song:
 
         if song_data["Special"] == 0:
             del song_data["Special"]
+
+        if song_data["Comment"] == "None":
+            del song_data["Comment"]
 
         os.makedirs(output_location.parent, exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
