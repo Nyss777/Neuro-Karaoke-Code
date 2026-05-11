@@ -71,15 +71,19 @@ def get_lyrics(WORKING_DIR: Path, session: requests.Session) -> None:
         reader = csv.DictReader(f)
         conversion_table: dict[str, str] = {row['UUID']: row['xxHash'] for row in reader}
     
-    with open(WORKING_DIR / "server_conversion.csv", 'r', encoding='utf-8') as f:
+    with open(WORKING_DIR / "compatibility_hashes.csv", 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         compatibility_table: dict[str, str] = {row['UUID']: row['Compatibility xxHash'] for row in reader}
 
-    conversion_table.update(compatibility_table)
+    for c_hash, c_value in compatibility_table.items():
+        conversion_table[c_hash] = c_value
 
     with open(WORKING_DIR / "uuid.jsonl", 'r', encoding='utf-8') as h:
 
-        for line in h:
+        total_count = sum(1 for _ in h)
+        h.seek(0)
+
+        for i, line in enumerate(h):
             song = json.loads(line)
             
             raw_lyrics = fetch_lyrics(song_id=song["id"], session=session)
@@ -94,3 +98,5 @@ def get_lyrics(WORKING_DIR: Path, session: requests.Session) -> None:
             sorted_lyrics = sorted([(item['time'], item['text']) for item in raw_lyrics])
 
             write_lyrics(sorted_lyrics, xxhash, WORKING_DIR)
+            
+            print(f"{i+1}/{total_count}")

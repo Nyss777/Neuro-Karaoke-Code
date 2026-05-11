@@ -10,7 +10,7 @@ wheels/
 .venv
 
 logs/
-
+backup/
 Lyrics/
 
 *.csv
