@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import cast
 
 import hjson
-from metadata_utils.CF_Program import get_all_mp3_as_obj
+from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,11 @@ def setup_logger():
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
 
+FIELD_DEFAULTS = {
+                "Special": "0"
+            }
+
+
 if __name__ == "__main__":
 
     setup_logger()
@@ -105,11 +110,14 @@ if __name__ == "__main__":
             continue
 
         copy = False
-        for key, value in hjson_data.items():
-            if getattr(song, key, "") != (value if isinstance(value, str) else str(value)):
-                copy = True
-                logger.debug(f"They differ in {key}; {getattr(song, key, "")} vs {hjson_data[key]}")
 
+        for field in Song.FIELDS:
+            value = hjson_data.get(field, FIELD_DEFAULTS.get(field, ""))
+            if getattr(song, field, "") != (value if isinstance(value, str) else str(value)):
+                copy = False
+                logger.debug(f"They differ in {field}; {getattr(song, field, "")} vs {value}")
+
+            
         if copy: 
 
             change = True
