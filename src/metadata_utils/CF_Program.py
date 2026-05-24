@@ -54,6 +54,18 @@ ALBUM_COVERS = {
     "天天天国地獄国": 'Tententengoku Jigokukoku cover art by copper1ion.jpg',
 }
 
+DISC_NAMES = {
+    "1": 'Humble Beginnings',    
+    "2": 'A Small Upgrade',    
+    "3": 'The Gold Standard',    
+    "4": 'First Anniversary',   
+    "5": 'Non-Stop Innovation',
+    "6": 'Second Anniversary',
+    "7": 'Background Running Process',
+    "8": 'Third Anniversary',
+}
+
+
 class Song:
     
     Date: str = ''
@@ -128,17 +140,7 @@ class Song:
 
     @property
     def TALB(self) -> str:
-        Discs = {
-            "1": 'Humble Beginnings',    
-            "2": 'A Small Upgrade',    
-            "3": 'The Gold Standard',    
-            "4": 'First Anniversary',   
-            "5": 'Non-Stop Innovation',
-            "6": 'Second Anniversary',
-            "7": 'Background Running Process',
-            "8": 'Third Anniversary',
-        }
-        return f"{Discs.get(self.Discnumber, "INVALID ALBUM NUMBER").upper()}: Neuro-Sama Karaoke Vol. {self.Discnumber}"
+        return f"{DISC_NAMES.get(self.Discnumber, "INVALID ALBUM NUMBER").upper()}: Neuro-Sama Karaoke Vol. {self.Discnumber}"
 
     @property
     def TDRC(self) -> str:
