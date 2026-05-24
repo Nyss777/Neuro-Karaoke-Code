@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import cast
 
 from analyze_version import match_best
+from dateutil import parser
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from metadata_utils.remuxer import remux_song
 from neurokaraoke_scraper import get_last_date, get_songs_info
@@ -43,8 +44,8 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
         print("Source File doesn't exit!")
         return
 
-    cover_artist_pattern = r"(\w+) Karaoke"
-    date_patterns = [r"(\d{4}-\d{2}-\d{2})"]
+    cover_artist_pattern = r"(.+?)(?:Mini-)?Karaoke"
+    date_patterns = [r"(\d{2,4}\D\d{2}\D\d{2,4})"]
     duet_pattern = "[Duet]"
 
     songs: dict[str, tuple[str, str, bool]] = {}
@@ -60,8 +61,14 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
             if date_match:
                 break
 
-        date = date_match.group(1) if date_match else get_previous_wednesday(today)
-        cover_artist = cover_artist_match.group(1) if cover_artist_match else "Neuro"
+        if date_match :
+            date = str(parser.parse(date_match.group(1)).date())
+        else:
+            date = get_previous_wednesday(today)
+
+        cover_artist = cover_artist_match.group(1).strip() if cover_artist_match else "Neuro"
+        if cover_artist.title() == "Evil Neuro":
+            cover_artist = "Evil"
 
         for line in f:
 
