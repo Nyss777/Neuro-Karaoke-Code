@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import os
@@ -14,7 +15,7 @@ from thefuzz import fuzz, process
 with open(Path(__file__).parent.parent.parent / "config.json") as f:
     CONFIGS = json.load(f)
 
-RAW_SONGS_PATH = CONFIGS["RAW_SONGS_PATH"]
+RAW_SONGS_FOLDER = CONFIGS["RAW_SONGS_FOLDER"]
 LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
 NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
@@ -63,7 +64,7 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
         if date_match :
             date = str(parser.parse(date_match.group(1)).date())
         else:
-            date = get_previous_wednesday(today)
+            date = get_previous_wednesday(datetime.date.today())
 
         cover_artist = cover_artist_match.group(1).strip() if cover_artist_match else "Neuro"
         if cover_artist.title() == "Evil Neuro":
@@ -90,10 +91,13 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
 
 if __name__ == "__main__":
 
-    today = datetime.date.today()
+    arg_parser = argparse.ArgumentParser(description='')
 
-    DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{today}_Processed"
-    listing = Path(CONFIGS["LISTING_FOLDER"]) / f"{today}.txt"
+    arg_parser.add_argument('--listing', '-l', type=str, required=True, help='Karaoke Songs Listing Path')
+    arg_parser.add_argument('--raw-folder', '-r', type=str, required=True, help='Karaoke Songs Folder Path')
+    args = arg_parser.parse_args()
+
+    listing = Path(CONFIGS["LISTING_FOLDER"]) / args.listing
 
     parse_result = parse_discord_file(source=listing)
 
@@ -103,7 +107,9 @@ if __name__ == "__main__":
 
     songs, date, cover_artist = parse_result
 
-    raw_files = get_all_mp3_as_obj(RAW_SONGS_PATH)
+    DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
+
+    raw_files = get_all_mp3_as_obj(Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name)
 
     archive = get_all_mp3_as_obj(ARCHIVE_PATH)
 
