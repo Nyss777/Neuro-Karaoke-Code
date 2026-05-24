@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import logging
 import os
 import re
 from pathlib import Path
@@ -12,6 +13,8 @@ from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from metadata_utils.remuxer import remux_song
 from thefuzz import fuzz, process
 
+logger = logging.getLogger(__name__)
+
 with open(Path(__file__).parent.parent.parent / "config.json") as f:
     CONFIGS = json.load(f)
 
@@ -19,6 +22,27 @@ RAW_SONGS_FOLDER = CONFIGS["RAW_SONGS_FOLDER"]
 LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
 NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
+LOG_DIRECTORY = CONFIGS["LOG_DIRECTORY"]
+
+def setup_logger():
+    logger = logging.getLogger()
+
+    log_path = Path(LOG_DIRECTORY) / f'[{datetime.date.today()}].log'
+
+    logger.setLevel(logging.DEBUG)
+
+    formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
+
+    file_handler = logging.FileHandler(log_path, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(formatter)
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
+
 
 def get_previous_wednesday(dt: datetime.date):
         
@@ -41,7 +65,7 @@ def get_last_track(p: Path):
 def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
 
     if not (source.exists() and source.is_file()):
-        print("Source File doesn't exit!")
+        logger.error("Source File doesn't exit!")
         return
 
     cover_artist_pattern = r"(.+?)(?:Mini-)?Karaoke"
@@ -65,8 +89,13 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
             date = str(parser.parse(date_match.group(1)).date())
         else:
             date = get_previous_wednesday(datetime.date.today())
+            logger.warning(f"No date found in listing, using default: {date}")
 
         cover_artist = cover_artist_match.group(1).strip() if cover_artist_match else "Neuro"
+
+        if not cover_artist_match:
+            logger.warning("No cover artist found in listing, using default: Neuro")
+
         if cover_artist.title() == "Evil Neuro":
             cover_artist = "Evil"
 
@@ -83,13 +112,17 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
             title, artist = [x.strip() for x in line.split("-", 1)]
 
             if songs.get(title) is not None:
-                print("ERROR!!! DUPLICATE TITLE!!!")
+                logger.error("ERROR!!! DUPLICATE TITLE!!!")
 
             songs[title] = (title, artist, is_duet) # Assumes unique titles, fails otherwise
 
     return songs, date, cover_artist
 
 if __name__ == "__main__":
+
+    setup_logger()
+
+    logger.info('-'*20 + "Program Start" + '-'*20)
 
     arg_parser = argparse.ArgumentParser(description='')
 
@@ -102,7 +135,7 @@ if __name__ == "__main__":
     parse_result = parse_discord_file(source=listing)
 
     if parse_result is None:
-        print("Failure parsing new data!")
+        logger.error("Failure parsing new data!")
         exit()
 
     songs, date, cover_artist = parse_result
@@ -123,7 +156,8 @@ if __name__ == "__main__":
             raw_files, 
             processor=lambda s: s.path.stem if isinstance(s, Song) else s # type: ignore
             )
-            # print(f"{raw.stem} -> {result[0]} with {result[1]}% confidence")
+        
+        logger.debug(f"{song} -> {result[0]} with {result[1]}% confidence")
             
         result = cast(tuple[Song, int] | None, result)
 
@@ -131,6 +165,7 @@ if __name__ == "__main__":
             matches.append((result, songs[song]))
 
     while len(matches) > len(raw_files): # handles re-runs of old songs
+        logger.debug(f"Removing {min(matches, key=lambda x: x[0][1])}")
         matches.remove(min(matches, key=lambda x: x[0][1]))
 
     for i, match in enumerate(matches):
@@ -146,7 +181,7 @@ if __name__ == "__main__":
         
         xxhash = song_obj.get_hash()
         if xxhash is None:
-            print(f"Error generating hash for {match}")
+            logger.error(f"Error generating hash for {match}")
             continue
 
         song_obj.Date = date
@@ -165,8 +200,8 @@ if __name__ == "__main__":
             
             previous = existing[0]
 
-            print(f"MATCHED: {song_obj.Artist} - {song_obj.Title}")
-            print(f"WITH: {previous.filename}")
+            logger.debug(f"MATCHED: {song_obj.Artist} - {song_obj.Title}")
+            logger.debug(f"WITH: {previous.filename}")
 
             song_obj.Title = previous.Title
             song_obj.TitleOG = previous.TitleOG
@@ -207,7 +242,7 @@ if __name__ == "__main__":
         
             song_obj.load_dict(data)
 
-        print(song_obj.filename)
+        logger.info("Processed:", song_obj.filename)
 
         song_obj.save()
 

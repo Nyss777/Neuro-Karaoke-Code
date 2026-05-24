@@ -12,6 +12,7 @@ logs/
 *.log
 
 # Ignore Data files
+Listings/
 *.txt
 
 # configs
