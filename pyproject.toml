@@ -6,11 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "metadata-utils",
-    "neurokaraoke-scraper",
     "python-dateutil>=2.9.0.post0",
     "thefuzz>=0.22.1",
 ]
 
 [tool.uv.sources]
-neurokaraoke-scraper = { path = "../Neurokaraoke_Scraper", editable = true }
 metadata-utils = { path = "../Metadata_Utils", editable = true }

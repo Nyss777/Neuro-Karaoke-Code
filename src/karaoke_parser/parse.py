@@ -9,7 +9,6 @@ from analyze_version import match_best
 from dateutil import parser
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from metadata_utils.remuxer import remux_song
-from neurokaraoke_scraper import get_last_date, get_songs_info
 from thefuzz import fuzz, process
 
 with open(Path(__file__).parent.parent.parent / "config.json") as f:
@@ -89,26 +88,6 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
 
     return songs, date, cover_artist
 
-def parse_neurokaraoke() -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
-
-    new_songs: dict[str, tuple[str, str, bool]] = {}
-
-    songs_info = get_songs_info(get_last_date(LATEST_ALBUM_PATH) + datetime.timedelta(days=1))
-    for s in songs_info:
-        cover_artists = " & ".join(s["coverArtists"])
-        is_duet = True if (',' in cover_artists or '&' in cover_artists) else False
-        new_songs[s["title"]] = (s["title"], ", ".join(s["originalArtists"]), is_duet)
-
-    if not songs_info:
-        return 
-
-    date = songs_info[0]["streamDate"]
-    date = str(datetime.datetime.fromisoformat(date).date())
-
-    cover_artist = " & ".join(songs_info[0]["coverArtists"])
-
-    return new_songs, date, cover_artist # returning one CA is kind of dumb by whatever, should be on a song basis
-
 if __name__ == "__main__":
 
     today = datetime.date.today()
@@ -117,9 +96,6 @@ if __name__ == "__main__":
     listing = Path(CONFIGS["LISTING_FOLDER"]) / f"{today}.txt"
 
     parse_result = parse_discord_file(source=listing)
-
-    if parse_result is None:
-        parse_result = parse_neurokaraoke()
 
     if parse_result is None:
         print("Failure parsing new data!")
