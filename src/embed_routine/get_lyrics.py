@@ -7,6 +7,8 @@ from random import random
 from time import sleep
 
 import requests
+from metadata_utils.CF_Program import Song
+from metadata_utils.embed_lyrics import get_embedded_lyrics
 
 # Lyrics are out of order 
 # Lyrics are separated by new lines when JP/EN
@@ -65,7 +67,12 @@ def fetch_lyrics(song_id: str, session: requests.Session) -> list[dict[str, str]
     else:
         return lyrics_response.json()
 
-def get_lyrics(WORKING_DIR: Path, session: requests.Session) -> None:
+def get_lyrics(
+    WORKING_DIR: Path, 
+    session: requests.Session, 
+    song_files: dict[str, Song], 
+    skip_existing: bool
+    ) -> None:
     
     with open(WORKING_DIR / "server_conversion.csv", encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -84,19 +91,28 @@ def get_lyrics(WORKING_DIR: Path, session: requests.Session) -> None:
         h.seek(0)
 
         for i, line in enumerate(h):
-            song = json.loads(line)
-            
-            raw_lyrics = fetch_lyrics(song_id=song["id"], session=session)
+            remote_song = json.loads(line)
+
+            xxhash = conversion_table[remote_song['id']]
+
+            local_song = song_files.get(xxhash)
+            if local_song is None:
+                print("Song not found for hash:", xxhash)
+                print(remote_song['id'])
+                continue
+
+            if any(get_embedded_lyrics(local_song.path)) and skip_existing:
+                continue
+
+            raw_lyrics = fetch_lyrics(song_id=remote_song["id"], session=session)
 
             sleep(random())
 
             if not raw_lyrics:
                 continue
 
-            xxhash = conversion_table[song['id']]
-
             sorted_lyrics = sorted([(item['time'], item['text']) for item in raw_lyrics])
 
             write_lyrics(sorted_lyrics, xxhash, WORKING_DIR)
             
-            print(f"{i+1}/{total_count}")
+            print(f"{i+1}/{total_count}", xxhash)

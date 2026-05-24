@@ -41,19 +41,27 @@ HEADERS = {
 
 if __name__ == "__main__":
 
+    song_files = {song.xxHash : song for song in get_all_mp3_as_obj(ARCHIVE_PATH)}
+
+    print("got files")
+
     with requests.Session() as session:
         session.headers.update(HEADERS)
 
+        print("created session")
+
         get_uuids(WORKING_DIR, session)
+
+        print("got uids")
 
         update_conversion_table(WORKING_DIR, session)
 
-        get_lyrics(WORKING_DIR, session)
+        print("updated conversion table")
+
+        get_lyrics(WORKING_DIR, session, song_files, True)
 
     lyrics_files = get_all_lrc(LYRICS_FOLDER)
     lenght = len(lyrics_files)
-
-    song_files = {song.xxHash : song for song in get_all_mp3_as_obj(ARCHIVE_PATH)}
 
     fails: list[str] = []
 
