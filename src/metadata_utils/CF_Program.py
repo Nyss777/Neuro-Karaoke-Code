@@ -255,12 +255,13 @@ class Song:
 
         """Return raw JSON string or an empty string."""
 
-        path = Path(self.path)
-
         try:
-            tags = TinyTag.get(path, tags=True, image=False)
+            tags = TinyTag.get(self.path, tags=True, image=False)
 
         except UnsupportedFormatError:
+            return ""
+
+        except FileNotFoundError:
             return ""
 
         texts = tags.other.get("comment") or []
