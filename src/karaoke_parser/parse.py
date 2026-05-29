@@ -68,7 +68,7 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
         logger.error("Source File doesn't exit!")
         return
 
-    cover_artist_pattern = r"(.+?)(?:Mini-)?Karaoke"
+    cover_artist_pattern = r"(\w.+?)(?:Mini-)?Karaoke"
     date_patterns = [r"(\d{2,4}\D\d{2}\D\d{2,4})"]
     duet_pattern = "[Duet]"
 
@@ -109,7 +109,9 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
                 is_duet = True
             line = line.replace(duet_pattern, "")
 
-            title, artist = [x.strip() for x in line.split("-", 1)]
+            title, artist = [x.strip() for x in line.split(" - ", 1)]
+            if line.count("-") > 1:
+                logger.warning("multiple \"-\" found, possible parser failure.")
 
             if songs.get(title) is not None:
                 logger.error("ERROR!!! DUPLICATE TITLE!!!")
@@ -242,7 +244,7 @@ if __name__ == "__main__":
         
             song_obj.load_dict(data)
 
-        logger.info("Processed:", song_obj.filename)
+        logger.info(f"Processed: {song_obj.filename}")
 
         song_obj.save()
 
