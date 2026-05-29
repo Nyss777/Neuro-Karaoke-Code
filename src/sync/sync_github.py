@@ -114,7 +114,7 @@ if __name__ == "__main__":
         for field in Song.FIELDS:
             value = hjson_data.get(field, FIELD_DEFAULTS.get(field, ""))
             if getattr(song, field, "") != (value if isinstance(value, str) else str(value)):
-                copy = False
+                copy = True
                 logger.debug(f"They differ in {field}; {getattr(song, field, "")} vs {value}")
 
             
@@ -129,7 +129,12 @@ if __name__ == "__main__":
             shutil.copy2(src=song.path, dst=backup_song_path) ## side-effect
 
             song.load_hjson(hjson_data)
-            song.save()
+
+            try:
+                song.save()
+
+            except FileExistsError:
+                logger.exception
 
     change = True
     if change:
