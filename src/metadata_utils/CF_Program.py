@@ -82,13 +82,42 @@ class Song:
     Special: str = ''
     xxHash: str = ''
 
+    FIELDS = (
+            "Date", 
+            "Title", 
+            "TitleOG",
+            "Identify",
+            "Artist",
+            "ArtistOG", 
+            "CoverArtist", 
+            "Version", 
+            "Discnumber", 
+            "Track", 
+            "Comment",
+            "Special",
+            "xxHash"
+            )
+
+    def __init__(self, path: Path | str, allow_incompatible : bool = False, allow_fake_path: bool = False):
+        self.path = Path(path)
+
+        if not allow_fake_path and (not self.path.exists() or self.path.is_dir()):
+            raise ValueError("The specified path is invalid!",
+                            f"Invalid path: {self.path}")
+
+        if not allow_incompatible and self.path.suffix != ".mp3":
+            raise ValueError("Incompatible format, only compatible with mp3s!",
+                            f"Invalid path: {self.path}")
+
+        self.load()
+
     def __repr__(self) -> str:
         return self.filename
 
     def __eq__(self, other: object, /) -> bool:
         if not isinstance(other, Song):
             return False
-        return self.filename + self.xxHash == other.filename + self.xxHash
+        return self.filename + self.xxHash == other.filename + other.xxHash
 
     def __hash__(self) -> int:
         return hash(self.filename + self.xxHash)
@@ -172,35 +201,6 @@ class Song:
     def TRCK(self) -> str:
         return self.Track
 
-    FIELDS = (
-            "Date", 
-            "Title", 
-            "TitleOG",
-            "Identify",
-            "Artist",
-            "ArtistOG", 
-            "CoverArtist", 
-            "Version", 
-            "Discnumber", 
-            "Track", 
-            "Comment",
-            "Special",
-            "xxHash"
-            )
-
-    def __init__(self, path: Path | str, allow_incompatible : bool = False, allow_fake_path: bool = False):
-        self.path = Path(path)
-
-        if not allow_fake_path and (not self.path.exists() or self.path.is_dir()):
-            raise ValueError("The specified path is invalid!",
-                            f"Invalid path: {self.path}")
-
-        if not allow_incompatible and self.path.suffix != ".mp3":
-            raise ValueError("Incompatible format, only compatible with mp3s!",
-                            f"Invalid path: {self.path}")
-
-        self.load()
-
     def load(self) -> None:
         payload = self._get_raw_json()
         if not payload:
@@ -269,7 +269,7 @@ class Song:
             texts.append(tags.comment)
 
         if not texts:
-            print("No comments found")
+            logger.debug("No comments found in tags.")
             return ""
         
         for text in texts:
@@ -326,7 +326,7 @@ class Song:
     def set_image(self, image_path: Path):
 
         if not (image_path.exists() and image_path.is_file()):
-            print("Please select a valid image!")
+            logger.error("Invalid image selected.")
             return
 
         image_data = image_path.read_bytes()
@@ -374,7 +374,7 @@ class Song:
             return
 
         if new_path.exists() and new_path.is_file():
-            raise FileExistsError(f"{new_path} already exists!")
+            raise FileExistsError(f"{new_path} already exists!\nself-path: {self.path}")
         else:
             try:
                 os.rename(self.path, new_path)
@@ -389,15 +389,15 @@ class Song:
         try:
             file_size = self.path.stat().st_size
             if file_size < 3000:
-                print(f"{self.path.name} is too small!")
+                logger.error(f"{self.path.name} is too small!")
                 return None
 
             with open(self.path, 'rb') as f:
                 xxhash = get_audio_hash(f.read(), file_size)
                 return xxhash
                 
-        except Exception as e:
-            print(f"Error processing {self.path}: {e}")
+        except Exception:
+            logger.exception
             return None
 
     def make_hjson(self, output_folder: Path | str):
@@ -405,14 +405,13 @@ class Song:
         output_folder = Path(output_folder)
 
         if not (output_folder.exists() and output_folder.is_dir()):
-            print("Please Pass a Valid Folder!",
-                 f"Invalid Folder: {output_folder}")
+            logger.error(f"Invalid Folder: {output_folder}")
             return
 
         song_data = {field: value for field in self.FIELDS if (value := getattr(self, field))}
 
         if not song_data:
-            print("No data found")
+            logger.warning("No data found")
             return
 
         filename = self.filename.replace(".mp3", ".hjson")
@@ -439,7 +438,7 @@ class Song:
         os.makedirs(output_location.parent, exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
             hjson.dump(song_data, f)
-            print(f"hjons made in {output_location}")
+            logger.info(f"hjons made in {output_location}")
 
     def print_tags(self):
 
@@ -487,8 +486,6 @@ class Song:
             text=sylt_data
         ))
         
-        # print(sylt_data)
-
         tags.save()
         logger.debug(f"Successfully embedded synced lyrics into {self.path}")
 
