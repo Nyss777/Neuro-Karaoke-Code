@@ -43,7 +43,6 @@ def setup_logger():
     logger.addHandler(file_handler)
     logger.addHandler(stream_handler)
 
-
 def get_previous_wednesday(dt: datetime.date):
         
     # weekday(): Mon=0, Tue=1, Wed=2...
@@ -145,6 +144,10 @@ if __name__ == "__main__":
     DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
 
     raw_files = get_all_mp3_as_obj(Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name)
+
+    if not raw_files:
+        logger.error("No audio files found.")
+        exit()
 
     archive = get_all_mp3_as_obj(ARCHIVE_PATH)
 
