@@ -4,8 +4,9 @@ import json
 import logging
 import os
 import re
+import zipfile
 from pathlib import Path
-from typing import cast
+from typing import Text, cast
 
 from analyze_version import match_best
 from dateutil import parser
@@ -23,6 +24,14 @@ LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
 NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
 LOG_DIRECTORY = CONFIGS["LOG_DIRECTORY"]
+
+def fetch_from_zip(zip_path: Path) -> list[Text]:
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        return zip_file.namelist()
+
+def read_file_from_zip(zip_path: Path, file_name: str) -> bytes:
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        return zip_file.read(file_name)
 
 def setup_logger():
     logger = logging.getLogger()
@@ -99,10 +108,15 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
                 logger.warning(f"No date found in listing, using default: {date}")
 
 
-        cover_artist = cover_artist_match.group(1).strip() if cover_artist_match else "Neuro"
+        if cover_artist_match:
+            cover_artist = cover_artist_match.group(1).strip()
+        else:
+            cover_artist = "Neuro"
 
         if not cover_artist_match:
-            logger.warning("No cover artist found in listing, using default: Neuro")
+            logger.warning(
+                "No cover artist found in listing, using default: Neuro"
+                )
 
         if cover_artist.title() == "Evil Neuro":
             cover_artist = "Evil"
@@ -124,7 +138,8 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
             if songs.get(title) is not None:
                 logger.error("ERROR!!! DUPLICATE TITLE!!!")
 
-            songs[title] = (title, artist, is_duet) # Assumes unique titles, fails otherwise
+            # Assumes unique titles, fails otherwise
+            songs[title] = (title, artist, is_duet) 
 
     return songs, date, cover_artist
 
@@ -136,8 +151,11 @@ if __name__ == "__main__":
 
     arg_parser = argparse.ArgumentParser(description='')
 
-    arg_parser.add_argument('--listing', '-l', type=str, required=True, help='Karaoke Songs Listing Path')
-    arg_parser.add_argument('--raw-folder', '-r', type=str, required=True, help='Karaoke Songs Folder Path')
+    arg_parser.add_argument('--listing', '-l', type=str, required=True, 
+        help='Karaoke Songs Listing Path')
+    arg_parser.add_argument('--raw-folder', '-r', type=str, required=True, 
+        help='Karaoke Songs Folder Path')
+
     args = arg_parser.parse_args()
 
     listing = Path(CONFIGS["LISTING_FOLDER"]) / args.listing
@@ -152,7 +170,12 @@ if __name__ == "__main__":
 
     DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
 
-    raw_files = get_all_mp3_as_obj(Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name)
+    source_zip = Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name
+
+    raw_files = [
+        Song(s, allow_fake_path=True) 
+        for s in fetch_from_zip(source_zip)
+        ]
 
     if not raw_files:
         logger.error("No audio files found.")
@@ -190,7 +213,11 @@ if __name__ == "__main__":
 
         new_path = DEST_LOC / song_obj.path.name
 
-        remux_song(song_obj.path, new_path)
+        remux_song(
+            read_file_from_zip(source_zip, song_obj.path.name), 
+            new_path
+            )
+
         song_obj.path = new_path
         
         xxhash = song_obj.get_hash()
