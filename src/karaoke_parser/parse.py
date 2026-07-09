@@ -59,6 +59,9 @@ def get_previous_wednesday(dt: datetime.date):
 
 def get_last_track(p: Path):
     ss = get_all_mp3_as_obj(p)
+    if not ss:
+        return 0
+
     return max([int(s.Track) for s in ss])
 
 def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
@@ -84,11 +87,17 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
             if date_match:
                 break
 
-        if date_match :
-            date = str(parser.parse(date_match.group(1)).date())
-        else:
+        if date_match is None:
             date = get_previous_wednesday(datetime.date.today())
             logger.warning(f"No date found in listing, using default: {date}")
+        else:
+            try:
+                date_string = date_match.group(1)
+                date = str(parser.parse(date_string, dayfirst=True).date())
+            except ValueError:
+                date = get_previous_wednesday(datetime.date.today())
+                logger.warning(f"No date found in listing, using default: {date}")
+
 
         cover_artist = cover_artist_match.group(1).strip() if cover_artist_match else "Neuro"
 
@@ -225,7 +234,7 @@ if __name__ == "__main__":
             else:
                 song_obj.Version = str(int(previous.Version) + 1)
 
-            song_obj.Discnumber = "8"
+            song_obj.Discnumber = "9"
             song_obj.Track = str(get_last_track(LATEST_ALBUM_PATH) + i + 1)
             song_obj.Comment = "None"
             song_obj.Special = "0"
@@ -238,7 +247,7 @@ if __name__ == "__main__":
                 "Artist": match[1][1],
                 "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
                 "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
-                "Discnumber": "8",
+                "Discnumber": "9",
                 "Track": str(get_last_track(LATEST_ALBUM_PATH) + i + 1),
                 "Comment": "None",
                 "Special": "0",
