@@ -170,12 +170,15 @@ if __name__ == "__main__":
 
     DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
 
-    source_zip = Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name
+    raw_source = Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name
 
-    raw_files = [
-        Song(s, allow_fake_path=True) 
-        for s in fetch_from_zip(source_zip)
-        ]
+    if Path(args.raw_folder).suffix == '.zip':
+        raw_files = [
+            Song(s, allow_fake_path=True) 
+            for s in fetch_from_zip(raw_source)
+            ]
+    else:
+        raw_files = get_all_mp3_as_obj(raw_source)
 
     if not raw_files:
         logger.error("No audio files found.")
@@ -213,10 +216,13 @@ if __name__ == "__main__":
 
         new_path = DEST_LOC / song_obj.path.name
 
-        remux_song(
-            read_file_from_zip(source_zip, song_obj.path.name), 
-            new_path
-            )
+        if Path(args.raw_folder).suffix == '.zip':
+            remux_song(
+                read_file_from_zip(raw_source, song_obj.path.name), 
+                new_path
+                )
+        else:
+            remux_song(song_obj.path, new_path)
 
         song_obj.path = new_path
         
