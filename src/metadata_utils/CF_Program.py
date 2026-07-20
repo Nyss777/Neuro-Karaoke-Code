@@ -50,6 +50,7 @@ ALBUM_COVERS = {
     "6": 'Disc 6 cover art by koilccc.jpg',
     "7": 'Disc 7 cover art by nostyx.jpg',
     "8": 'Disc 8 cover art by lukuwo.jpg',
+    "9": 'Disc 9 cover art by lingyouzzz.jpg',
     # "66": 'Disc 66 cover art by tanhuluu.jpg',
     "天天天国地獄国": 'Tententengoku Jigokukoku cover art by copper1ion.jpg',
 }
@@ -63,6 +64,7 @@ DISC_NAMES = {
     "6": 'Second Anniversary',
     "7": 'Background Running Process',
     "8": 'Third Anniversary',
+    "9": 'Regularly Scheduled Program'
 }
 
 
