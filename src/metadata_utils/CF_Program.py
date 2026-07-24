@@ -203,6 +203,18 @@ class Song:
     def TRCK(self) -> str:
         return self.Track
 
+    @property
+    def Track_Info(self) -> tuple[str, str|None]:
+        track_n, total = "0", None
+
+        print(self.Track)
+        if '/' in self.Track:
+            track_n, total = self.Track.split('/')
+        else:
+            track_n = self.Track
+
+        return track_n, total
+
     def load(self) -> None:
         payload = self._get_raw_json()
         if not payload:
@@ -434,8 +446,9 @@ class Song:
         if song_data["Special"] == 0:
             del song_data["Special"]
 
-        if song_data["Comment"] == "None":
-            del song_data["Comment"]
+        if "Comment" in song_data:
+            if song_data["Comment"] == "None":
+                del song_data["Comment"]
 
         os.makedirs(output_location.parent, exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
