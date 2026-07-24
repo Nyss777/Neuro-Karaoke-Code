@@ -1,0 +1,26 @@
+# Ignore the Python virtual environment
+.venv/
+venv/
+env/
+
+# Ignore compiled Python files
+__pycache__/
+*.py[cod]
+
+# Ignore log files (like the sync [date].log you created earlier!)
+logs/
+*.log
+
+# Ignore Data files
+Listings/
+*.txt
+
+# configs
+*.json
+
+# Ignore OS-specific system files
+.DS_Store
+Thumbs.db
+
+# Ignore sensitive environment variables
+.env

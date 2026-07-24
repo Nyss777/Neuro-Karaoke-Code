@@ -1,0 +1,14 @@
+[project]
+name = "autoparsing"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "metadata-utils",
+    "python-dateutil>=2.9.0.post0",
+    "thefuzz>=0.22.1",
+]
+
+[tool.uv.sources]
+metadata-utils = { path = "../Metadata_Utils", editable = true }
