@@ -144,6 +144,7 @@ if __name__ == "__main__":
                         f"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
                         "--exclude", ".stfolder/**",
                         "--exclude", ".stversions/**",
+                        "--exclude", "*Toby Fox*",
                         "--dry-run",
                         "--combined",
                         "--fast-list",
@@ -158,6 +159,7 @@ if __name__ == "__main__":
                             F"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
                             "--exclude", ".stfolder/**",
                             "--exclude", ".stversions/**",
+                            "--exclude", "*Toby Fox*",
                             "--fast-list",
                             "--checksum"
                             ])
