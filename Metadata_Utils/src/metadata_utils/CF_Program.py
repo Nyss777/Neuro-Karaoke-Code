@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 try:
     with open( Path(__file__).parent.parent.parent / "config.txt" ) as f:
-        ALBUMS_COVER_PATH = Path(f.read())
+        ALBUMS_COVER_PATH = Path(f.read().strip())
 except Exception:
     logger.error("Failed to load album cover config")
     ALBUMS_COVER_PATH = None
@@ -355,7 +355,7 @@ class Song:
     def set_image(self, image_path: Path):
 
         if not (image_path.exists() and image_path.is_file()):
-            logger.error("Invalid image selected.")
+            logger.error(f"Invalid image selected. ({image_path})")
             return
 
         image_data = image_path.read_bytes()

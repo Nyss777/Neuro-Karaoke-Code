@@ -16,14 +16,17 @@ from thefuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
 
-with open(Path(__file__).parent.parent.parent / "config.json") as f:
+
+SCRIPT_FOLDER = Path(__file__).parent.parent.parent 
+
+with open(SCRIPT_FOLDER / "config.json") as f:
     CONFIGS = json.load(f)
 
-RAW_SONGS_FOLDER = CONFIGS["RAW_SONGS_FOLDER"]
 LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
 NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
-LOG_DIRECTORY = CONFIGS["LOG_DIRECTORY"]
+LOG_DIRECTORY = SCRIPT_FOLDER / "Logs"
+DEST_FOLDER = SCRIPT_FOLDER / "Processed_Songs"
 
 def fetch_from_zip(zip_path: Path) -> list[Text]:
     with zipfile.ZipFile(zip_path, 'r') as zip_file:
@@ -66,12 +69,8 @@ def get_previous_wednesday(dt: datetime.date):
         
     return str(dt - datetime.timedelta(days=days_ago))
 
-def get_last_track(p: Path):
-    ss = get_all_mp3_as_obj(p)
-    if not ss:
-        return 0
-
-    return max([int(s.Track) for s in ss])
+def get_last_track(disc: list[Song]):
+    return max([int(s.Track) for s in disc])
 
 def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
 
@@ -158,7 +157,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    listing = Path(CONFIGS["LISTING_FOLDER"]) / args.listing
+    listing = Path(args.listing).expanduser()
 
     parse_result = parse_discord_file(source=listing)
 
@@ -168,9 +167,9 @@ if __name__ == "__main__":
 
     songs, date, cover_artist = parse_result
 
-    DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
+    dest_loc = DEST_FOLDER / f"Karaoke_[{date}]"
 
-    raw_source = Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name
+    raw_source = Path(args.raw_folder).expanduser()
 
     if Path(args.raw_folder).suffix == '.zip':
         raw_files = [
@@ -212,9 +211,9 @@ if __name__ == "__main__":
 
         song_obj = match[0][0]
 
-        os.makedirs(DEST_LOC, exist_ok=True)
+        os.makedirs(dest_loc, exist_ok=True)
 
-        new_path = DEST_LOC / song_obj.path.name
+        new_path = dest_loc / song_obj.path.name
 
         if Path(args.raw_folder).suffix == '.zip':
             remux_song(

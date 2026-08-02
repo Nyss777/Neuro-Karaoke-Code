@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
         subprocess.run(["rclone", "sync",
                         f"{ARCHIVE_PATH}", 
-                        f"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
+                        f"{REMOTE_NAME}:{REMOTE_ARCHIVE_FOLDER}",
                         "--exclude", ".stfolder/**",
                         "--exclude", ".stversions/**",
                         "--exclude", "*Toby Fox*",
@@ -156,7 +156,7 @@ if __name__ == "__main__":
         if comfirmation == 'commit':
             subprocess.run(["rclone", "sync","-P",
                             f"{ARCHIVE_PATH}", 
-                            F"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
+                            F"{REMOTE_NAME}:{REMOTE_ARCHIVE_FOLDER}",
                             "--exclude", ".stfolder/**",
                             "--exclude", ".stversions/**",
                             "--exclude", "*Toby Fox*",
