@@ -4,6 +4,7 @@ import os
 import re
 import unicodedata
 from pathlib import Path
+from typing import cast
 
 import hjson
 import xxhash
@@ -216,6 +217,10 @@ class Song:
         return track_n, total
 
     def load(self) -> None:
+        if self.path.suffix == ".hjson":
+            self.load_hjson(self.path)
+            return
+
         payload = self._get_raw_json()
         if not payload:
             return
@@ -227,7 +232,17 @@ class Song:
         self.set_tags()
         self.rename()
 
-    def load_hjson(self, hjson_data: dict[str, (str | int | float)]) -> None:
+    def load_hjson(self, hjson_path: Path):
+        try:
+            with open(hjson_path, encoding="utf-8") as f:
+                content = f.read()
+            metadata = cast(dict[str, str|int|float], hjson.loads(content))
+            self._load_hjson_payload(metadata)
+
+        except Exception:
+            logger.exception(f"Unable to process metadata for {hjson_path}.")
+
+    def _load_hjson_payload(self, hjson_data: dict[str, (str | int | float)]) -> None:
 
         data = {
         field: str(hjson_data.get(field)) for field in self.FIELDS
