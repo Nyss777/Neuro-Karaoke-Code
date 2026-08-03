@@ -35,12 +35,19 @@ from .embed_lyrics import (
 
 logger = logging.getLogger(__name__)
 
+SCRIPT_FOLDER = Path(__file__).parent.parent.parent 
+
 try:
-    with open( Path(__file__).parent.parent.parent / "config.txt" ) as f:
-        ALBUMS_COVER_PATH = Path(f.read().strip())
+    with open(SCRIPT_FOLDER / "config.json") as f:
+        CONFIGS = json.load(f)
+
 except Exception:
-    logger.error("Failed to load album cover config")
-    ALBUMS_COVER_PATH = None
+    logger.exception("Failed to load album cover config")
+    ALBUMS_COVER_PATH = None    
+
+else:
+    ALBUMS_COVER_PATH = Path(CONFIGS["ALBUMS_COVER_PATH"])
+
 
 ALBUM_COVERS = {
     "1": 'Disc 1 cover art by paccha.jpg',  
@@ -237,12 +244,12 @@ class Song:
             with open(hjson_path, encoding="utf-8") as f:
                 content = f.read()
             metadata = cast(dict[str, str|int|float], hjson.loads(content))
-            self._load_hjson_payload(metadata)
+            self.load_hjson_payload(metadata)
 
         except Exception:
             logger.exception(f"Unable to process metadata for {hjson_path}.")
 
-    def _load_hjson_payload(self, hjson_data: dict[str, (str | int | float)]) -> None:
+    def load_hjson_payload(self, hjson_data: dict[str, (str | int | float)]) -> None:
 
         data = {
         field: str(hjson_data.get(field)) for field in self.FIELDS

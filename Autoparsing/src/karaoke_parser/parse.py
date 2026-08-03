@@ -23,6 +23,8 @@ with open(SCRIPT_FOLDER / "config.json") as f:
     CONFIGS = json.load(f)
 
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
+# Point this to the hjson repository
+
 LOG_DIRECTORY = SCRIPT_FOLDER / "Logs"
 DEST_FOLDER = SCRIPT_FOLDER / "Processed_Songs"
 
