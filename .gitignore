@@ -8,12 +8,15 @@ __pycache__/
 *.py[cod]
 
 # Ignore log files (like the sync [date].log you created earlier!)
-logs/
+Logs/
 *.log
 
 # Ignore Data files
 Listings/
 *.txt
+
+# Backups
+Backup/
 
 # configs
 *.json

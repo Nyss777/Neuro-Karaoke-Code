@@ -16,14 +16,17 @@ from thefuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
 
-with open(Path(__file__).parent.parent.parent / "config.json") as f:
+
+SCRIPT_FOLDER = Path(__file__).parent.parent.parent 
+
+with open(SCRIPT_FOLDER / "config.json") as f:
     CONFIGS = json.load(f)
 
-RAW_SONGS_FOLDER = CONFIGS["RAW_SONGS_FOLDER"]
-LATEST_ALBUM_PATH = Path(CONFIGS["LATEST_ALBUM_PATH"])
 ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
-NEW_HJSON_PATH = CONFIGS["NEW_HJSON_PATH"]
-LOG_DIRECTORY = CONFIGS["LOG_DIRECTORY"]
+# Point this to the hjson repository
+
+LOG_DIRECTORY = SCRIPT_FOLDER / "Logs"
+DEST_FOLDER = SCRIPT_FOLDER / "Processed_Songs"
 
 def fetch_from_zip(zip_path: Path) -> list[Text]:
     with zipfile.ZipFile(zip_path, 'r') as zip_file:
@@ -66,12 +69,35 @@ def get_previous_wednesday(dt: datetime.date):
         
     return str(dt - datetime.timedelta(days=days_ago))
 
-def get_last_track(p: Path):
-    ss = get_all_mp3_as_obj(p)
-    if not ss:
-        return 0
+def get_last_track(archive: list[Song], disc: str) -> int:
+    ss: list[int] = []
+    for s in archive:
+        print(s.Discnumber)
+        print(disc)
+        if s.Discnumber == disc:
+            ss.append(int(s.Track))
+        
+    return max(ss) if ss else 0
 
-    return max([int(s.Track) for s in ss])
+def get_disc_from_date(date: str) -> str:
+    if date < "2023-05-27":
+        return "1"
+    elif date < "2023-06-21":
+        return "2"
+    elif date < "2023-12-19":
+        return "3"
+    elif date < "2024-07-10":
+        return "4"
+    elif date < "2024-11-17":
+        return "5"
+    elif date < "2025-05-28":
+        return "6"
+    elif date < "2025-12-19":
+        return "7"
+    elif date < "2026-06-24":
+        return "8"
+    else:
+        return "9"
 
 def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
 
@@ -158,7 +184,7 @@ if __name__ == "__main__":
 
     args = arg_parser.parse_args()
 
-    listing = Path(CONFIGS["LISTING_FOLDER"]) / args.listing
+    listing = Path(args.listing).expanduser()
 
     parse_result = parse_discord_file(source=listing)
 
@@ -168,9 +194,9 @@ if __name__ == "__main__":
 
     songs, date, cover_artist = parse_result
 
-    DEST_LOC = Path(CONFIGS["DEST_FOLDER"]) / f"{date}_Processed"
+    dest_loc = DEST_FOLDER / f"Karaoke_[{date}]"
 
-    raw_source = Path(RAW_SONGS_FOLDER) / Path(args.raw_folder).name
+    raw_source = Path(args.raw_folder).expanduser()
 
     if Path(args.raw_folder).suffix == '.zip':
         raw_files = [
@@ -184,11 +210,13 @@ if __name__ == "__main__":
         logger.error("No audio files found.")
         exit()
 
-    archive = get_all_mp3_as_obj(ARCHIVE_PATH)
+    archive = [(Song(f, allow_incompatible=True)) for f in ARCHIVE_PATH.rglob('*.hjson') if f.is_file()]
 
+    last_track = get_last_track(archive, get_disc_from_date(date))
+    
     matches: list[tuple[tuple[Song, int], tuple[str, str, bool]]] = []
 
-    for song in songs:
+    for song in songs:  
 
         # extractOne returns (match, confidence_score)
         result = process.extractOne( # type: ignore
@@ -212,9 +240,9 @@ if __name__ == "__main__":
 
         song_obj = match[0][0]
 
-        os.makedirs(DEST_LOC, exist_ok=True)
+        os.makedirs(dest_loc, exist_ok=True)
 
-        new_path = DEST_LOC / song_obj.path.name
+        new_path = dest_loc / song_obj.path.name
 
         if Path(args.raw_folder).suffix == '.zip':
             remux_song(
@@ -243,6 +271,7 @@ if __name__ == "__main__":
             songs=archive
             )
 
+
         if existing:
             
             previous = existing[0]
@@ -267,8 +296,8 @@ if __name__ == "__main__":
             else:
                 song_obj.Version = str(int(previous.Version) + 1)
 
-            song_obj.Discnumber = "9"
-            song_obj.Track = str(get_last_track(LATEST_ALBUM_PATH) + i + 1)
+            song_obj.Discnumber = get_disc_from_date(date)
+            song_obj.Track = str(last_track + i + 1)
             song_obj.Comment = "None"
             song_obj.Special = "0"
             song_obj.xxHash = xxhash
@@ -280,8 +309,8 @@ if __name__ == "__main__":
                 "Artist": match[1][1],
                 "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
                 "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
-                "Discnumber": "9",
-                "Track": str(get_last_track(LATEST_ALBUM_PATH) + i + 1),
+                "Discnumber": get_disc_from_date(date),
+                "Track": str(last_track + i + 1),
                 "Comment": "None",
                 "Special": "0",
                 "xxHash": xxhash
@@ -295,6 +324,6 @@ if __name__ == "__main__":
 
         song_obj.set_album_image()
 
-        song_obj.make_hjson(NEW_HJSON_PATH)
+        song_obj.make_hjson(ARCHIVE_PATH)
 
         

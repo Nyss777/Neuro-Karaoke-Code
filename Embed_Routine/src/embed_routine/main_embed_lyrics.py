@@ -14,6 +14,7 @@ with open(WORKING_DIR / "config.json") as f:
 
 LYRICS_FOLDER = WORKING_DIR / "Lyrics"
 ARCHIVE_PATH = CONFIGS["ARCHIVE_PATH"]
+USER_AGENT = CONFIGS["USER_AGENT"]
 
 def get_all_lrc(p: Path | str) -> list[Path]: 
     """
@@ -23,7 +24,7 @@ def get_all_lrc(p: Path | str) -> list[Path]:
     return [f for f in p.rglob('*.lrc') if f.is_file()]
 
 HEADERS = {
-    "User-Agent": CONFIGS["USER_AGENT"],
+    "User-Agent": USER_AGENT,
     "Accept": "*/*",
     "Accept-Language": "en-US,en;q=0.5",
     "Referer": "https://neurokaraoke.com/",

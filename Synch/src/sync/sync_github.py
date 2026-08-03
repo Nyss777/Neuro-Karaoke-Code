@@ -12,13 +12,16 @@ from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 
 logger = logging.getLogger(__name__)
 
-with open(Path(__file__).parent.parent.parent / "config.json") as f:
+SCRIPT_FOLDER = Path(__file__).parent.parent.parent 
+
+with open(SCRIPT_FOLDER / "config.json") as f:
     CONFIGS = json.load(f)
+
+LOG_DIRECTORY = SCRIPT_FOLDER / "Logs"
+BACKUP_PATH = SCRIPT_FOLDER / "Backup"
 
 ARCHIVE_PATH = CONFIGS["ARCHIVE_PATH"]
 ARCHIVE_METADATA = CONFIGS["ARCHIVE_METADATA"]
-BACKUP_PATH = Path(CONFIGS["BACKUP_PATH"])
-LOG_DIR = Path(CONFIGS["LOG_PATH"])
 REMOTE_NAME = CONFIGS["REMOTE_NAME"]
 REMOTE_ARCHIVE_FOLDER = CONFIGS["REMOTE_ARCHIVE_FOLDER"]
 
@@ -49,7 +52,7 @@ def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
 def setup_logger():
     logger = logging.getLogger()
 
-    log_path = LOG_DIR / f'sync-[{date.today()}].log'
+    log_path = LOG_DIRECTORY / f'sync_[{date.today()}].log'
 
     logger.setLevel(logging.DEBUG)
 
@@ -128,7 +131,7 @@ if __name__ == "__main__":
             os.makedirs(os.path.dirname(backup_song_path), exist_ok=True) ## side-effect
             shutil.copy2(src=song.path, dst=backup_song_path) ## side-effect
 
-            song.load_hjson(hjson_data)
+            song.load_hjson_payload(hjson_data)
 
             try:
                 song.save()
@@ -141,7 +144,7 @@ if __name__ == "__main__":
 
         subprocess.run(["rclone", "sync",
                         f"{ARCHIVE_PATH}", 
-                        f"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
+                        f"{REMOTE_NAME}:{REMOTE_ARCHIVE_FOLDER}",
                         "--exclude", ".stfolder/**",
                         "--exclude", ".stversions/**",
                         "--exclude", "*Toby Fox*",
@@ -156,7 +159,7 @@ if __name__ == "__main__":
         if comfirmation == 'commit':
             subprocess.run(["rclone", "sync","-P",
                             f"{ARCHIVE_PATH}", 
-                            F"{REMOTE_NAME}:\\{REMOTE_ARCHIVE_FOLDER}",
+                            F"{REMOTE_NAME}:{REMOTE_ARCHIVE_FOLDER}",
                             "--exclude", ".stfolder/**",
                             "--exclude", ".stversions/**",
                             "--exclude", "*Toby Fox*",
@@ -168,4 +171,4 @@ if __name__ == "__main__":
             subprocess.run(["git", "reset", "--hard", "ORIG_HEAD"])
 
         else:
-            print("Synchronization Cancelled.")
+            logger.info("Synchronization Cancelled.")
