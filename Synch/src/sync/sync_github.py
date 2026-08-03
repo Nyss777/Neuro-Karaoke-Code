@@ -44,15 +44,14 @@ def get_metadata(hjson_path: str) -> ( dict[str, str|int|float] | None ):
             metadata = cast(dict[str, (str | int | float)], hjson.load(f))
         return metadata
 
-    except Exception as e:
-        print(f"Unable to process metadata for {os.path.basename(hjson_path)}!")
-        print(e)
+    except Exception:
+        logger.exception(f"Unable to process metadata for {hjson_path}.")
         return None
 
 def setup_logger():
     logger = logging.getLogger()
 
-    log_path = LOG_DIRECTORY / f'sync_[{date.today()}].log'
+    log_path = LOG_DIRECTORY / f'sync_[{date.today()}].log'  # noqa: DTZ011
 
     logger.setLevel(logging.DEBUG)
 
@@ -77,7 +76,7 @@ if __name__ == "__main__":
 
     os.chdir(ARCHIVE_METADATA)
 
-    subprocess.run(["git", "switch", "main"])
+    subprocess.run(["git", "switch", "main"], check=True)
 
     changed_files = get_all_hjson(ARCHIVE_METADATA)
 
@@ -126,7 +125,7 @@ if __name__ == "__main__":
             change = True
             filename = song.path.name
             parent = song.path.parent.name
-            backup_song_path = BACKUP_PATH / f"backup-[{date.today()}]" / parent / filename
+            backup_song_path = BACKUP_PATH / f"backup-[{date.today()}]" / parent / filename  # noqa: DTZ011
 
             os.makedirs(os.path.dirname(backup_song_path), exist_ok=True) ## side-effect
             shutil.copy2(src=song.path, dst=backup_song_path) ## side-effect
@@ -137,7 +136,7 @@ if __name__ == "__main__":
                 song.save()
 
             except FileExistsError:
-                logger.exception
+                logger.exception("Error")
 
     change = True
     if change:
@@ -152,7 +151,9 @@ if __name__ == "__main__":
                         "--combined",
                         "--fast-list",
                         "--checksum"
-                        ])
+                        ],
+                        check=True
+                        )
 
         comfirmation = input("Type 'commit' to accept: \n")
 
@@ -165,10 +166,12 @@ if __name__ == "__main__":
                             "--exclude", "*Toby Fox*",
                             "--fast-list",
                             "--checksum"
-                            ])
+                            ],
+                            check=True
+                            )
 
         elif comfirmation == "reset":
-            subprocess.run(["git", "reset", "--hard", "ORIG_HEAD"])
+            subprocess.run(["git", "reset", "--hard", "ORIG_HEAD"], check=True)
 
         else:
             logger.info("Synchronization Cancelled.")

@@ -4,9 +4,10 @@ import json
 import logging
 import os
 import re
+import sys
 import zipfile
 from pathlib import Path
-from typing import Text, cast
+from typing import cast
 
 from analyze_version import match_best
 from dateutil import parser
@@ -28,7 +29,7 @@ ARCHIVE_PATH = Path(CONFIGS["ARCHIVE_PATH"])
 LOG_DIRECTORY = SCRIPT_FOLDER / "Logs"
 DEST_FOLDER = SCRIPT_FOLDER / "Processed_Songs"
 
-def fetch_from_zip(zip_path: Path) -> list[Text]:
+def fetch_from_zip(zip_path: Path) -> list[str]:
     with zipfile.ZipFile(zip_path, 'r') as zip_file:
         return zip_file.namelist()
 
@@ -39,7 +40,7 @@ def read_file_from_zip(zip_path: Path, file_name: str) -> bytes:
 def setup_logger():
     logger = logging.getLogger()
 
-    log_path = Path(LOG_DIRECTORY) / f'[{datetime.date.today()}].log'
+    log_path = Path(LOG_DIRECTORY) / f'[{datetime.date.today()}].log'  # noqa: DTZ011
 
     logger.setLevel(logging.DEBUG)
 
@@ -123,14 +124,14 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
                 break
 
         if date_match is None:
-            date = get_previous_wednesday(datetime.date.today())
+            date = get_previous_wednesday(datetime.date.today())  # noqa: DTZ011
             logger.warning(f"No date found in listing, using default: {date}")
         else:
             try:
                 date_string = date_match.group(1)
                 date = str(parser.parse(date_string, dayfirst=True).date())
             except ValueError:
-                date = get_previous_wednesday(datetime.date.today())
+                date = get_previous_wednesday(datetime.date.today())  # noqa: DTZ011
                 logger.warning(f"No date found in listing, using default: {date}")
 
 
@@ -190,7 +191,7 @@ if __name__ == "__main__":
 
     if parse_result is None:
         logger.error("Failure parsing new data!")
-        exit()
+        sys.exit()
 
     songs, date, cover_artist = parse_result
 
@@ -208,7 +209,7 @@ if __name__ == "__main__":
 
     if not raw_files:
         logger.error("No audio files found.")
-        exit()
+        sys.exit()
 
     archive = [(Song(f, allow_incompatible=True)) for f in ARCHIVE_PATH.rglob('*.hjson') if f.is_file()]
 

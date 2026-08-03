@@ -1,5 +1,6 @@
 import csv
 import json
+import logging
 import random
 import time
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 from metadata_utils.CF_Program import get_audio_hash
 from requests import Session
 
+logger = logging.getLogger(__name__)
 
 def get_remote_audio_segment_hash(abs_path: str, session: Session) -> str | None:
     # 1. Get the total file size without downloading the body
@@ -15,14 +17,14 @@ def get_remote_audio_segment_hash(abs_path: str, session: Session) -> str | None
     try:
         response = session.get(url)
 
-    except Exception as e:
-        print(e)
+    except Exception:
+        logger.exception("Error")
         return None
 
     file_size = int(response.headers.get('Content-Length', 0))
 
     if file_size == 0:
-        print("fuck")
+        logger.error("Failed acessing file size (file_size = 0)")
         return None
 
     # 2. Determine if there is an ID3v1 tag (the 'TAG' footer)

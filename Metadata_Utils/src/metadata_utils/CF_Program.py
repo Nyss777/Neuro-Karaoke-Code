@@ -261,7 +261,6 @@ class Song:
 
         for field in self.FIELDS:
             if field in d:
-                # print(f"{field} - {d[field]}")
                 if d[field] == "None":
                     setattr(self, field, "") # removes bad fields
                     continue
@@ -270,9 +269,6 @@ class Song:
 
         if self.Special == "":
             self.Special = "0"
-
-            # else:            
-            #     print(f"Missing key: {field} - {self.filename}")
 
     def get_raw(self, key: str) -> str:
 
@@ -402,7 +398,6 @@ class Song:
 
         self.set_image(ALBUMS_COVER_PATH / cover_image)
 
-
     def rename(self) -> None:
         new_path = self.path.with_name(self.filename)
 
@@ -412,14 +407,8 @@ class Song:
         if new_path.exists() and new_path.is_file():
             raise FileExistsError(f"{new_path} already exists!\nself-path: {self.path}")
         else:
-            try:
-                os.rename(self.path, new_path)
-
-            except Exception:
-                raise
-
-            else:
-                self.path = new_path
+            os.rename(self.path, new_path)
+            self.path = new_path
 
     def get_hash(self) -> str | None:
         try:
@@ -433,7 +422,7 @@ class Song:
                 return xxhash
                 
         except Exception:
-            logger.exception
+            logger.exception("Error")
             return None
 
     def make_hjson(self, output_folder: Path | str):
@@ -468,9 +457,8 @@ class Song:
         if song_data["Special"] == 0:
             del song_data["Special"]
 
-        if "Comment" in song_data:
-            if song_data["Comment"] == "None":
-                del song_data["Comment"]
+        if "Comment" in song_data and song_data["Comment"] == "None":
+            del song_data["Comment"]
 
         os.makedirs(output_location.parent, exist_ok=True)
         with open(output_location, 'w', encoding='utf-8') as f:
@@ -546,7 +534,7 @@ def sanitize_filename(filename: str) -> str:
         '|': '_'
     }
 
-    for char in FORBIDDEN_CHARS:
+    for char in FORBIDDEN_CHARS:  # noqa: PLC0206
         filename = filename.replace(char, FORBIDDEN_CHARS[char])
 
     while("  " in filename):
@@ -579,5 +567,5 @@ def get_audio_hash(file: bytes, file_size: int) -> (str | None):
         return xxhash.xxh64(raw_audio).hexdigest()
 
     except Exception:
-        logging.exception
+        logger.exception("Error")
         return None

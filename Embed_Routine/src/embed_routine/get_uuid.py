@@ -1,9 +1,13 @@
 import json
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import requests
+
+logger = logging.getLogger(__name__)
+
 
 url = "https://api.neurokaraoke.com/api/songs"
 
@@ -37,7 +41,7 @@ def get_uuids(Download_location: Path, session: requests.Session) -> None:
             data = response.json()
             
             if (old_uuid := Download_location / 'uuid.jsonl').is_file():
-                timestamp = datetime.today().strftime('%Y-%m-%d_%H-%M-%S')
+                timestamp = datetime.today().strftime('%Y-%m-%d_%H-%M-%S')  # noqa: DTZ002
                 new_name = f"uuid [{timestamp}].jsonl"
                 old_uuid.replace(Backup_location / new_name)
 
@@ -46,9 +50,9 @@ def get_uuids(Download_location: Path, session: requests.Session) -> None:
                     json.dump(entry, f)
                     f.write('\n')
 
-        except Exception as e:
-            print(e)
+        except Exception:
+            logger.exception("Error")
 
     else:
-        print(f"Failed with status code: {response.status_code}")
-        print(response.text)
+        logger.error(f"Failed with status code: {response.status_code}")
+        logger.error(f"Error Response: {response.text}")
