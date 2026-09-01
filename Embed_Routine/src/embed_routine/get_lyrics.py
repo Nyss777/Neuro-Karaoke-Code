@@ -10,6 +10,8 @@ import requests
 from metadata_utils.CF_Program import Song
 from metadata_utils.embed_lyrics import get_embedded_lyrics
 
+logger = logging.getLogger(__name__)
+
 # Lyrics are out of order 
 # Lyrics are separated by new lines when JP/EN
 
@@ -53,16 +55,16 @@ def fetch_lyrics(song_id: str, session: requests.Session) -> list[dict[str, str]
         
     except requests.exceptions.HTTPError as err:
         status_code = err.response.status_code if err.response is not None else "Unknown"
-        logging.error(f"Http Error: {status_code}")
+        logger.error(f"Http Error: {status_code}")
 
     except requests.exceptions.ConnectionError:
-        logging.exception("Error Connecting")
+        logger.exception("Error Connecting")
 
     except requests.exceptions.Timeout:
-        logging.exception("Timeout Error")
+        logger.exception("Timeout Error")
 
     except requests.exceptions.RequestException:
-        logging.exception("An Error Happened")
+        logger.exception("An Error Happened")
 
     else:
         return lyrics_response.json()

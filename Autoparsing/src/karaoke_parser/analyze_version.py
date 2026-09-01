@@ -1,7 +1,8 @@
 import json
 import math
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 from metadata_utils.CF_Program import Song, get_all_mp3_as_obj
 from thefuzz import fuzz, process
@@ -45,7 +46,7 @@ def test(
     positive: bool
     ) -> set[tuple[Song, tuple[Song, int, int] | None]]:
     
-    return set([(test, match_best(test, scorer, 90, songs)) for test in get_sample(songs, positive)])
+    return {(test, match_best(test, scorer, 90, songs)) for test in get_sample(songs, positive)}
 
 def artist_filter(
     query: Song,

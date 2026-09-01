@@ -41,13 +41,14 @@ def remux_file(file_path: Path, new_path: Path) -> None:
             capture_output=True, 
             text=True,
             encoding='utf-8',
-            creationflags=cf_flag
+            creationflags=cf_flag,
+            check=True
         )
         if result.returncode != 0:
             logger.critical(f"ffmpeg encountered an issue. Stderr: {result.stderr}")
             
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        logger.exception("Error")
 
     else:
         logger.debug("Remuxing process run succesufully")
@@ -81,14 +82,15 @@ def remux_bytes(audio_data: bytes, new_path: Path) -> None:
             shell=False,
             input=audio_data,  # Pass raw bytes to stdin
             capture_output=True,
-            creationflags=cf_flag
+            creationflags=cf_flag,
+            check=True
         )
         
         if result.returncode != 0:
             logger.critical(f"ffmpeg encountered an issue. Stderr: {result.stderr}")
                 
-    except Exception as e:
-        logger.exception(e)
+    except Exception:
+        logger.exception("Error")
         raise
 
     else:
