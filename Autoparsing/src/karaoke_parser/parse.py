@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
@@ -17,6 +18,15 @@ from thefuzz import fuzz, process
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class SourceSong:
+    source_title: str
+    source_artist: str
+    is_duet: bool
+    
+type SourceTitle = str
+type Date = str
+type CoverArtist = str
 
 SCRIPT_FOLDER = Path(__file__).parent.parent.parent 
 
@@ -80,7 +90,7 @@ def get_last_track(archive: list[Song], disc: str) -> int:
         
     return max(ss) if ss else 0
 
-def get_disc_from_date(date: str) -> str:
+def get_disc_from_date(date: Date) -> str:
     if date < "2023-05-27":
         return "1"
     elif date < "2023-06-21":
@@ -100,7 +110,8 @@ def get_disc_from_date(date: str) -> str:
     else:
         return "9"
 
-def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], str, str] | None:
+def parse_discord_file(source: Path) -> tuple[
+    dict[SourceTitle, SourceSong], Date, CoverArtist] | None:
 
     if not (source.exists() and source.is_file()):
         logger.error("Source File doesn't exit!")
@@ -110,7 +121,7 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
     date_patterns = [r"(\d{2,4}\D\d{2}\D\d{2,4})"]
     duet_pattern = "[Duet]"
 
-    songs: dict[str, tuple[str, str, bool]] = {}
+    songs: dict[str, SourceSong] = {}
 
     with open(source, 'r', encoding='utf-8') as f:
         header = f.readline()
@@ -166,7 +177,7 @@ def parse_discord_file(source: Path) -> tuple[dict[str, tuple[str, str, bool]], 
                 logger.error("ERROR!!! DUPLICATE TITLE!!!")
 
             # Assumes unique titles, fails otherwise
-            songs[title] = (title, artist, is_duet) 
+            songs[title] = SourceSong(source_title=title, source_artist=artist, is_duet=is_duet) 
 
     return songs, date, cover_artist
 
@@ -215,7 +226,7 @@ if __name__ == "__main__":
 
     last_track = get_last_track(archive, get_disc_from_date(date))
     
-    matches: list[tuple[tuple[Song, int], tuple[str, str, bool]]] = []
+    matches: list[tuple[tuple[Song, int], SourceSong]] = []
 
     for song in songs:  
 
@@ -261,9 +272,9 @@ if __name__ == "__main__":
             continue
 
         song_obj.Date = date
-        song_obj.Title = match[1][0]
-        song_obj.Artist = match[1][1]
-        song_obj.CoverArtist = "Neuro & Evil" if match[1][2] else cover_artist
+        song_obj.Title = match[1].source_title
+        song_obj.Artist = match[1].source_artist
+        song_obj.CoverArtist = "Neuro & Evil" if match[1].is_duet else cover_artist
 
         existing = match_best(
             query=song_obj, 
@@ -306,10 +317,10 @@ if __name__ == "__main__":
         else:
             data: dict[str, str] = {
                 "Date": date,
-                "Title": match[1][0],
-                "Artist": match[1][1],
-                "CoverArtist": "Neuro & Evil" if match[1][2] else cover_artist,
-                "Version": str(1 if (match[1][2] or cover_artist == "Evil") else 3),
+                "Title": match[1].source_title,
+                "Artist": match[1].source_artist,
+                "CoverArtist": "Neuro & Evil" if match[1].is_duet else cover_artist,
+                "Version": str(1 if (match[1].is_duet or cover_artist == "Evil") else 3),
                 "Discnumber": get_disc_from_date(date),
                 "Track": str(last_track + i + 1),
                 "Comment": "None",
