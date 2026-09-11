@@ -24,6 +24,12 @@ class SourceSong:
     source_artist: str
     is_duet: bool
     
+@dataclass
+class Match:
+    data_source: SourceSong
+    raw_song: Song
+    match_confidence: int
+
 type SourceTitle = str
 type Date = str
 type CoverArtist = str
@@ -192,7 +198,7 @@ if __name__ == "__main__":
     arg_parser.add_argument('--listing', '-l', type=str, required=True, 
         help='Karaoke Songs Listing Path')
     arg_parser.add_argument('--raw-folder', '-r', type=str, required=True, 
-        help='Karaoke Songs Folder Path')
+        help='Karaoke Songs Folder/Zip Path')
 
     args = arg_parser.parse_args()
 
@@ -226,7 +232,7 @@ if __name__ == "__main__":
 
     last_track = get_last_track(archive, get_disc_from_date(date))
     
-    matches: list[tuple[tuple[Song, int], SourceSong]] = []
+    matches: list[Match] = []
 
     for song in songs:  
 
@@ -242,15 +248,20 @@ if __name__ == "__main__":
         result = cast(tuple[Song, int] | None, result)
 
         if result:
-            matches.append((result, songs[song]))
+            matches.append(
+                Match(
+                raw_song=result[0], 
+                match_confidence=result[1], 
+                data_source=songs[song]
+                ))
 
     while len(matches) > len(raw_files): # handles re-runs of old songs
-        logger.debug(f"Removing {min(matches, key=lambda x: x[0][1])}")
-        matches.remove(min(matches, key=lambda x: x[0][1]))
+        logger.debug(f"Removing {min(matches, key=lambda x: x.match_confidence)}")
+        matches.remove(min(matches, key=lambda x: x.match_confidence))
 
     for i, match in enumerate(matches):
 
-        song_obj = match[0][0]
+        song_obj = match.raw_song
 
         os.makedirs(dest_loc, exist_ok=True)
 
@@ -272,9 +283,9 @@ if __name__ == "__main__":
             continue
 
         song_obj.Date = date
-        song_obj.Title = match[1].source_title
-        song_obj.Artist = match[1].source_artist
-        song_obj.CoverArtist = "Neuro & Evil" if match[1].is_duet else cover_artist
+        song_obj.Title = match.data_source.source_title
+        song_obj.Artist = match.data_source.source_artist
+        song_obj.CoverArtist = "Neuro & Evil" if match.data_source.is_duet else cover_artist
 
         existing = match_best(
             query=song_obj, 
@@ -317,10 +328,10 @@ if __name__ == "__main__":
         else:
             data: dict[str, str] = {
                 "Date": date,
-                "Title": match[1].source_title,
-                "Artist": match[1].source_artist,
-                "CoverArtist": "Neuro & Evil" if match[1].is_duet else cover_artist,
-                "Version": str(1 if (match[1].is_duet or cover_artist == "Evil") else 3),
+                "Title": match.data_source.source_title,
+                "Artist": match.data_source.source_artist,
+                "CoverArtist": "Neuro & Evil" if match.data_source.is_duet else cover_artist,
+                "Version": str(1 if (match.data_source.is_duet or cover_artist == "Evil") else 3),
                 "Discnumber": get_disc_from_date(date),
                 "Track": str(last_track + i + 1),
                 "Comment": "None",
