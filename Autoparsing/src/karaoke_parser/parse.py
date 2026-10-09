@@ -212,6 +212,10 @@ if __name__ == "__main__":
 
     songs, date, cover_artist = parse_result
 
+    if cover_artist.title() == "Twin":
+        for k in songs:
+            songs[k].is_duet = True
+
     dest_loc = DEST_FOLDER / f"Karaoke_[{date}]"
 
     raw_source = Path(args.raw_folder).expanduser()
