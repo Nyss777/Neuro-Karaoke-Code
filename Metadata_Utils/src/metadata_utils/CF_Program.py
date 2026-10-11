@@ -347,6 +347,7 @@ class Song:
             tags = ID3()
     
         tags.delall("TXXX")
+        tags.delall("COMM")
         tags.add(TPE1(encoding=3, text=[self.TPE1]))
         tags.add(TALB(encoding=3, text=[self.TALB]))
         tags.add(TIT2(encoding=3, text=[self.TIT2]))
