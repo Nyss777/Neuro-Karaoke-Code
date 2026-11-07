@@ -27,3 +27,6 @@ Thumbs.db
 
 # Ignore sensitive environment variables
 .env
+
+# Processing Output
+*/Processed_Songs
