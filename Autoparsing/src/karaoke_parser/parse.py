@@ -185,11 +185,43 @@ def parse_discord_file(source: Path) -> tuple[
 
     return songs, date, cover_artist
 
+def match_songs(songs: dict[SourceTitle, SourceSong], raw_files: list[Song]) -> list[Match]:
+    matches: list[Match] = []
+
+    for song_title in songs:  # noqa: PLC0206
+
+        # extractOne returns (match, confidence_score)
+        result = process.extractOne( # type: ignore
+            song_title,
+            raw_files, 
+            processor=lambda s: s.path.stem if isinstance(s, Song) else s # type: ignore
+            )
+        
+        logger.debug(f"{song_title} -> {result[0]} with {result[1]}% confidence")
+            
+        result = cast(tuple[Song, int] | None, result)
+
+        if result:
+            matches.append(
+                Match(
+                raw_song=result[0], 
+                match_confidence=result[1], 
+                data_source=songs[song_title]
+                ))
+
+    while len(matches) > len(raw_files): # handles re-runs of old songs
+        logger.debug(f"Removing {min(matches, key=lambda x: x.match_confidence)}")
+        matches.remove(min(matches, key=lambda x: x.match_confidence))
+
+
+    return matches
+
 if __name__ == "__main__":
 
     setup_logger()
 
     logger.info('-'*20 + "Program Start" + '-'*20)
+
 
     arg_parser = argparse.ArgumentParser(description='')
 
@@ -199,7 +231,6 @@ if __name__ == "__main__":
         help='Karaoke Songs Folder/Zip Path')
 
     args = arg_parser.parse_args()
-
     listing = Path(args.listing).expanduser()
 
     parse_result = parse_discord_file(source=listing)
@@ -210,11 +241,11 @@ if __name__ == "__main__":
 
     songs, date, cover_artist = parse_result
 
+
     if cover_artist.title() == "Twin":
         for k in songs:
             songs[k].is_duet = True
 
-    dest_loc = DEST_FOLDER / f"Karaoke_[{date}]"
 
     raw_source = Path(args.raw_folder).expanduser()
 
@@ -230,36 +261,14 @@ if __name__ == "__main__":
         logger.error("No audio files found.")
         sys.exit()
 
+    
+    matches: list[Match] = match_songs(songs, raw_files=raw_files)
+
     archive = [(Song(f, allow_incompatible=True)) for f in ARCHIVE_PATH.rglob('*.hjson') if f.is_file()]
 
     last_track = get_last_track(archive, get_disc_from_date(date))
-    
-    matches: list[Match] = []
 
-    for song in songs:  
-
-        # extractOne returns (match, confidence_score)
-        result = process.extractOne( # type: ignore
-            song, # Song title
-            raw_files, 
-            processor=lambda s: s.path.stem if isinstance(s, Song) else s # type: ignore
-            )
-        
-        logger.debug(f"{song} -> {result[0]} with {result[1]}% confidence")
-            
-        result = cast(tuple[Song, int] | None, result)
-
-        if result:
-            matches.append(
-                Match(
-                raw_song=result[0], 
-                match_confidence=result[1], 
-                data_source=songs[song]
-                ))
-
-    while len(matches) > len(raw_files): # handles re-runs of old songs
-        logger.debug(f"Removing {min(matches, key=lambda x: x.match_confidence)}")
-        matches.remove(min(matches, key=lambda x: x.match_confidence))
+    dest_loc = DEST_FOLDER / f"Karaoke_[{date}]"
 
     for i, match in enumerate(matches):
 
