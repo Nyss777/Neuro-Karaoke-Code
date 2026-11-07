@@ -89,8 +89,6 @@ def get_previous_wednesday(dt: datetime.date):
 def get_last_track(archive: list[Song], disc: str) -> int:
     ss: list[int] = []
     for s in archive:
-        print(s.Discnumber)
-        print(disc)
         if s.Discnumber == disc:
             ss.append(int(s.Track))
         
