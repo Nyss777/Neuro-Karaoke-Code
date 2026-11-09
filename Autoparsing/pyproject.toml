@@ -12,3 +12,8 @@ dependencies = [
 
 [tool.uv.sources]
 metadata-utils = { path = "../Metadata_Utils", editable = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

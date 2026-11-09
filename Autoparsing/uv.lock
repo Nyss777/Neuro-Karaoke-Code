@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.13"
 
 [[package]]
@@ -12,12 +12,20 @@ dependencies = [
     { name = "thefuzz" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "metadata-utils", editable = "../Metadata_Utils" },
     { name = "python-dateutil", specifier = ">=2.9.0.post0" },
     { name = "thefuzz", specifier = ">=0.22.1" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 
 [[package]]
 name = "colorama"
